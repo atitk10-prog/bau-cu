@@ -17,7 +17,7 @@ function doGet(e) {
     case 'login': result = login(payload.username, payload.password); break;
     case 'getConfig': result = getConfig(); break;
     case 'updateConfig': result = updateConfig(payload.config); break;
-    case 'getElections': result = getElections(); break;
+    case 'getElections': result = getElections(payload.user); break;
     case 'addElection': result = addElection(payload); break;
     case 'deleteElection': result = deleteElection(payload.id); break;
     case 'updateElection': result = updateElection(payload); break;
@@ -122,19 +122,23 @@ function updateConfig(config) {
 }
 
 // ==================== ELECTIONS ====================
-function getElections() {
+function getElections(user) {
   var sheet = getSheet('ELECTIONS');
   var data = sheet.getDataRange().getValues();
   var elections = [];
   for (var i = 1; i < data.length; i++) {
     if (data[i][0] !== '') {
+      // Filter by createdBy (column 7) — each user sees only their own elections
+      var createdBy = data[i][6] || '';
+      if (user && createdBy && createdBy !== user) continue;
       elections.push({
         id: String(data[i][0]),
         name: data[i][1],
         soUngVien: parseInt(data[i][2]) || 0,
         soNguoiDuocBau: parseInt(data[i][3]) || 0,
         phieuPhatRa: parseInt(data[i][4]) || 0,
-        phieuThuVe: parseInt(data[i][5]) || 0
+        phieuThuVe: parseInt(data[i][5]) || 0,
+        createdBy: createdBy
       });
     }
   }
@@ -144,7 +148,7 @@ function getElections() {
 function addElection(p) {
   var sheet = getSheet('ELECTIONS');
   var id = 'e' + Date.now();
-  sheet.appendRow([id, p.name, p.soUngVien, p.soNguoiDuocBau, p.phieuPhatRa || 0, p.phieuThuVe || 0]);
+  sheet.appendRow([id, p.name, p.soUngVien, p.soNguoiDuocBau, p.phieuPhatRa || 0, p.phieuThuVe || 0, p.user || '']);
   // Create candidate + ballot sheets
   var cSheet = getSheet('C_' + id);
   if (cSheet.getLastRow() === 0) cSheet.appendRow(['id', 'name']);
@@ -494,7 +498,7 @@ function setupSheets() {
   // ELECTIONS
   var elections = getSheet('ELECTIONS');
   if (elections.getLastRow() === 0) {
-    elections.appendRow(['id', 'name', 'so_ung_vien', 'so_nguoi_duoc_bau', 'phieu_phat_ra', 'phieu_thu_ve']);
+    elections.appendRow(['id', 'name', 'so_ung_vien', 'so_nguoi_duoc_bau', 'phieu_phat_ra', 'phieu_thu_ve', 'created_by']);
   }
   // REPORT
   var report = getSheet('REPORT');

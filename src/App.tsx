@@ -53,7 +53,7 @@ export default function App() {
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto p-8">
-        {view === 'elections' && <ElectionsView onSelect={(e) => { setActiveElection(e); setView('entry'); }} activeId={activeElection?.id} />}
+        {view === 'elections' && <ElectionsView onSelect={(e) => { setActiveElection(e); setView('entry'); }} activeId={activeElection?.id} user={authUser.username} />}
         {view === 'report' && <ReportView />}
         {view === 'entry' && activeElection && <BallotEntryView election={activeElection} user={authUser.username} />}
         {view === 'results' && activeElection && <ResultsView election={activeElection} />}
@@ -84,13 +84,13 @@ function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
 }
 
 // ==================== ELECTIONS ====================
-function ElectionsView({ onSelect, activeId }: { onSelect: (e: Election) => void; activeId?: string }) {
+function ElectionsView({ onSelect, activeId, user }: { onSelect: (e: Election) => void; activeId?: string; user: string }) {
   const [elections, setElections] = useState<Election[]>([]); const [showAdd, setShowAdd] = useState(false); const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ name: '', soUngVien: 5, soNguoiDuocBau: 3, phieuPhatRa: 0, phieuThuVe: 0 });
-  const refresh = async () => { setLoading(true); try { const r = await api.getElections(); if (r.success) setElections(r.elections); } catch {} setLoading(false); };
+  const refresh = async () => { setLoading(true); try { const r = await api.getElections(user); if (r.success) setElections(r.elections); } catch {} setLoading(false); };
   useEffect(() => { refresh(); }, []);
 
-  const handleAdd = async (e: React.FormEvent) => { e.preventDefault(); const r = await api.addElection(form); if (r.success) { setShowAdd(false); setForm({ name: '', soUngVien: 5, soNguoiDuocBau: 3, phieuPhatRa: 0, phieuThuVe: 0 }); refresh(); } };
+  const handleAdd = async (e: React.FormEvent) => { e.preventDefault(); const r = await api.addElection({ ...form, user }); if (r.success) { setShowAdd(false); setForm({ name: '', soUngVien: 5, soNguoiDuocBau: 3, phieuPhatRa: 0, phieuThuVe: 0 }); refresh(); } };
   const handleDelete = async (id: string) => { if (confirm('Xóa cuộc bầu cử này?')) { await api.deleteElection(id); refresh(); } };
 
   return (
@@ -189,7 +189,7 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
     setSubmitting(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && status !== 'invalid') handleManualSubmit(); };
+  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleManualSubmit(); };
 
   return (
     <div className="space-y-6">
@@ -221,7 +221,7 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
               {status === 'success' && <div className="mt-4 p-3 rounded-xl bg-blue-50 text-blue-700 text-sm font-medium text-center">✓ Đã lưu! Nhập phiếu tiếp...</div>}
               <div className="mt-8 flex justify-between items-center">
                 <span className="text-sm text-gray-400">Nhấn <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-bold">Enter</kbd> để lưu nhanh</span>
-                <button onClick={handleManualSubmit} disabled={status === 'invalid' || submitting} className="px-8 py-3 bg-[#5A5A40] text-white rounded-full font-bold shadow-lg hover:bg-[#4a4a35] disabled:opacity-50">Lưu phiếu</button>
+                <button onClick={handleManualSubmit} disabled={submitting} className="px-8 py-3 bg-[#5A5A40] text-white rounded-full font-bold shadow-lg hover:bg-[#4a4a35] disabled:opacity-50">Lưu phiếu</button>
               </div>
             </div>
           ) : (

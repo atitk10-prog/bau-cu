@@ -18,7 +18,7 @@ async function callApi(action: string, payload?: Record<string, unknown>) {
 export const login = (username: string, password: string) => callApi('login', { username, password });
 
 // Elections
-export const getElections = () => callApi('getElections');
+export const getElections = (user: string) => callApi('getElections', { user });
 export const addElection = (data: Record<string, unknown>) => callApi('addElection', data);
 export const deleteElection = (id: string) => callApi('deleteElection', { id });
 export const updateElection = (data: Record<string, unknown>) => callApi('updateElection', data);
