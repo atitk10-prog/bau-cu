@@ -171,12 +171,15 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
   const [bulkCount, setBulkCount] = useState('');
   const [status, setStatus] = useState<'idle' | 'valid' | 'invalid' | 'success'>('idle');
   const [note, setNote] = useState(''); const [submitting, setSubmitting] = useState(false);
-  const [stt, setStt] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     Promise.all([api.getCandidates(election.id), api.getBallots(election.id)]).then(([c, b]) => {
       if (c.success) setCandidates(c.candidates);
-      if (b.success) { setRecentBallots(b.ballots.slice(-15).reverse()); setStt(b.ballots.length); }
+      if (b.success) {
+        setRecentBallots(b.ballots.slice(-15).reverse());
+        setTotalCount(b.ballots.reduce((sum: number, bl: Ballot) => sum + (bl.count || 1), 0));
+      }
     });
   }, [election.id]);
 
@@ -201,7 +204,7 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
     if (submitting) return; setSubmitting(true);
     try {
       const res = await api.addBallot(election.id, ballot || '0', user);
-      if (res.success) { setRecentBallots(prev => [res.ballot, ...prev].slice(0, 15)); setStt(s => s + 1); setBallot(''); setStatus('success'); setTimeout(() => setStatus('idle'), 800); }
+      if (res.success) { setRecentBallots(prev => [res.ballot, ...prev].slice(0, 15)); setTotalCount(s => s + 1); setBallot(''); setStatus('success'); setTimeout(() => setStatus('idle'), 800); }
     } catch (e) { console.error(e); }
     setSubmitting(false);
   };
@@ -210,7 +213,7 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
     if (submitting || !bulkPattern || !bulkCount) return; setSubmitting(true);
     try {
       const res = await api.addBulkBallot(election.id, bulkPattern, parseInt(bulkCount), user);
-      if (res.success) { setRecentBallots(prev => [res.ballot, ...prev].slice(0, 15)); setStt(s => s + parseInt(bulkCount)); setBulkPattern(''); setBulkCount(''); }
+      if (res.success) { setRecentBallots(prev => [res.ballot, ...prev].slice(0, 15)); setTotalCount(s => s + parseInt(bulkCount)); setBulkPattern(''); setBulkCount(''); }
       else alert(res.error);
     } catch (e) { console.error(e); }
     setSubmitting(false);
@@ -237,8 +240,8 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
             <div className={cn("bg-white p-10 rounded-[32px] shadow-sm border-2 transition-all", status === 'valid' ? "border-green-300" : status === 'invalid' ? "border-red-300" : status === 'success' ? "border-blue-300" : "border-black/5")}>
               <div className={cn("h-1.5 rounded-full mb-8 transition-colors", status === 'valid' ? "bg-green-500" : status === 'invalid' ? "bg-red-500" : status === 'success' ? "bg-blue-500" : "bg-[#5A5A40]")} />
               <div className="flex items-center gap-4 mb-6">
-                <span className="text-4xl font-serif font-bold text-gray-200">#{stt + 1}</span>
-                <span className="text-sm text-gray-400">Phiếu tiếp theo</span>
+                <span className="text-4xl font-serif font-bold text-gray-200">#{totalCount + 1}</span>
+                <span className="text-sm text-gray-400">Phiếu tiếp theo • Đã nhập: <b className="text-[#5A5A40]">{totalCount}</b>{election.phieuThuVe > 0 && <> / {election.phieuThuVe}{totalCount >= election.phieuThuVe && <span className="text-red-500 font-bold ml-1"> ⚠ ĐÃ ĐỦ!</span>}</>}</span>
               </div>
               <label className="block text-xs font-bold uppercase tracking-widest text-[#5A5A40] mb-3">Nhập số ứng viên bị GẠCH</label>
               <input type="text" value={ballot} onChange={e => setBallot(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown} placeholder="VD: 24 (gạch ứng viên 2 và 4)" autoFocus
@@ -280,7 +283,7 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
 
         {/* Recent ballots */}
         <div className="space-y-4">
-          <h3 className="text-lg font-serif font-bold">Phiếu đã nhập ({stt})</h3>
+          <h3 className="text-lg font-serif font-bold">Phiếu đã nhập ({totalCount})</h3>
           <div className="space-y-2 max-h-[600px] overflow-y-auto">
             {recentBallots.map(b => (
               <div key={b.id} className="bg-white p-4 rounded-[16px] shadow-sm border border-black/5 flex items-center justify-between">
@@ -292,7 +295,10 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
                   </div>
                   <p className="text-xs text-gray-400">{b.note}</p>
                 </div>
-                {b.valid ? <CheckCircle2 className="text-green-500 shrink-0" size={20} /> : <XCircle className="text-red-500 shrink-0" size={20} />}
+                <div className="flex items-center gap-2">
+                  {b.valid ? <CheckCircle2 className="text-green-500 shrink-0" size={20} /> : <XCircle className="text-red-500 shrink-0" size={20} />}
+                  <button onClick={async () => { if (confirm(`Xóa phiếu #${b.id}?`)) { await api.deleteBallot(election.id, b.id); setRecentBallots(prev => prev.filter(x => x.id !== b.id)); setTotalCount(s => s - (b.count || 1)); } }} className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
+                </div>
               </div>
             ))}
           </div>
@@ -307,9 +313,31 @@ function ResultsView({ election }: { election: Election }) {
   const [results, setResults] = useState<Result[]>([]); const [stats, setStats] = useState<Stats>({ totalPhieu: 0, validPhieu: 0, invalidPhieu: 0, blankPhieu: 0 });
   const [progress, setProgress] = useState<Progress>({ phieuPhatRa: 0, phieuThuVe: 0, daNhap: 0, conThieu: 0 });
   const [ballotTypes, setBallotTypes] = useState<BallotType[]>([]); const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'total' | 'types'>('total');
+  const [activeTab, setActiveTab] = useState<'total' | 'types' | 'votecount'>('total');
+  const [ballotByVoteCount, setBallotByVoteCount] = useState<Record<string, number>>({});
 
-  const refresh = async () => { setLoading(true); try { const r = await api.getResults(election.id); if (r.success) { setResults(r.results); setStats(r.stats); setProgress(r.progress); setBallotTypes(r.ballotTypes); } } catch {} setLoading(false); };
+  const refresh = async () => { setLoading(true); try { const r = await api.getResults(election.id); if (r.success) { setResults(r.results); setStats(r.stats); setProgress(r.progress); setBallotTypes(r.ballotTypes); setBallotByVoteCount(r.ballotByVoteCount || {}); } } catch {} setLoading(false); };
+
+  const exportExcel = () => {
+    let csv = '\uFEFF'; // BOM for Excel UTF-8
+    csv += `${election.name} — Kết quả kiểm phiếu\n\n`;
+    csv += `Phát ra,${progress.phieuPhatRa}\nThu về,${progress.phieuThuVe}\nĐã nhập,${progress.daNhap}\nCòn thiếu,${progress.conThieu}\n\n`;
+    csv += `Tổng phiếu,${stats.totalPhieu}\nHợp lệ,${stats.validPhieu}\nKhông hợp lệ,${stats.invalidPhieu}\nPhiếu trắng,${stats.blankPhieu}\n\n`;
+    csv += 'Hạng,Ứng viên,Phiếu bầu,Bị gạch,Tỷ lệ %,Kết quả\n';
+    results.forEach(r => { csv += `${r.rank},${r.name},${r.votes},${r.crossed},${r.percent}%,${r.elected ? 'Trúng cử' : 'Chưa trúng'}\n`; });
+    csv += '\nPhân loại theo số người bầu\nLoại,Số lượng,Tình trạng\n';
+    for (let i = 0; i <= election.soUngVien; i++) {
+      const hl = ballotByVoteCount['bau_' + i] || 0;
+      const khl = ballotByVoteCount['bau_' + i + '_khl'] || 0;
+      if (hl > 0) csv += `Bầu ${i} người,${hl},Hợp lệ\n`;
+      if (khl > 0) csv += `Bầu ${i} người,${khl},Không hợp lệ\n`;
+    }
+    csv += '\nChi tiết loại phiếu\nMẫu gạch,Số lượng,Trạng thái,Ghi chú\n';
+    ballotTypes.forEach(bt => { csv += `${bt.pattern === '0' ? '(trắng)' : bt.pattern},${bt.count},${bt.valid ? 'Hợp lệ' : 'Không hợp lệ'},${bt.note}\n`; });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `${election.name}_ket_qua.csv`; a.click(); URL.revokeObjectURL(url);
+  };
   useEffect(() => { refresh(); }, [election.id]);
 
   return (
@@ -319,16 +347,16 @@ function ResultsView({ election }: { election: Election }) {
         <button onClick={refresh} disabled={loading} className="p-3 bg-white rounded-xl shadow-sm border hover:bg-gray-50 disabled:opacity-50"><RefreshCw size={20} className={cn("text-[#5A5A40]", loading && "animate-spin")} /></button>
       </header>
 
-      {/* Progress bar */}
-      <div className="bg-white p-6 rounded-[24px] shadow-sm border border-black/5">
+      <div className={cn("bg-white p-6 rounded-[24px] shadow-sm border", progress.daNhap > progress.phieuThuVe && progress.phieuThuVe > 0 ? "border-red-300 bg-red-50/30" : "border-black/5")}>
         <h3 className="text-sm font-bold uppercase tracking-widest text-[#5A5A40] mb-3">Tiến độ nhập phiếu</h3>
         <div className="flex items-center gap-6 mb-3">
           <div><span className="text-xs text-gray-400">Phát ra</span><p className="text-xl font-bold">{progress.phieuPhatRa}</p></div>
           <div><span className="text-xs text-gray-400">Thu về</span><p className="text-xl font-bold">{progress.phieuThuVe}</p></div>
-          <div><span className="text-xs text-gray-400">Đã nhập</span><p className="text-xl font-bold text-green-600">{progress.daNhap}</p></div>
-          <div><span className="text-xs text-gray-400">Còn thiếu</span><p className={cn("text-xl font-bold", progress.conThieu > 0 ? "text-red-600" : "text-green-600")}>{progress.conThieu}</p></div>
+          <div><span className="text-xs text-gray-400">Đã nhập</span><p className={cn("text-xl font-bold", progress.daNhap > progress.phieuThuVe && progress.phieuThuVe > 0 ? "text-red-600" : "text-green-600")}>{progress.daNhap}</p></div>
+          <div><span className="text-xs text-gray-400">{progress.conThieu >= 0 ? 'Còn thiếu' : 'Dư'}</span><p className={cn("text-xl font-bold", progress.conThieu < 0 ? "text-red-600" : progress.conThieu === 0 ? "text-green-600" : "text-orange-500")}>{progress.conThieu < 0 ? `+${Math.abs(progress.conThieu)}` : progress.conThieu}</p></div>
         </div>
-        {progress.phieuThuVe > 0 && <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-[#5A5A40] rounded-full transition-all" style={{ width: `${Math.min(100, (progress.daNhap / progress.phieuThuVe) * 100)}%` }} /></div>}
+        {progress.daNhap > progress.phieuThuVe && progress.phieuThuVe > 0 && <div className="p-3 bg-red-100 text-red-700 rounded-xl text-sm font-medium mb-3">⚠️ Đã nhập VƯỢT QUÁ số phiếu thu về! Dư <b>{progress.daNhap - progress.phieuThuVe}</b> phiếu — vui lòng kiểm tra lại.</div>}
+        {progress.phieuThuVe > 0 && <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden"><div className={cn("h-full rounded-full transition-all", progress.daNhap > progress.phieuThuVe ? "bg-red-500" : "bg-[#5A5A40]")} style={{ width: `${Math.min(100, (progress.daNhap / progress.phieuThuVe) * 100)}%` }} /></div>}
       </div>
 
       {/* Stats */}
@@ -340,12 +368,14 @@ function ResultsView({ election }: { election: Election }) {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <button onClick={() => setActiveTab('total')} className={cn("px-5 py-2.5 rounded-full font-medium text-sm", activeTab === 'total' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>📊 Tổng kết quả</button>
+        <button onClick={() => setActiveTab('votecount')} className={cn("px-5 py-2.5 rounded-full font-medium text-sm", activeTab === 'votecount' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>🗳️ Phân loại bầu</button>
         <button onClick={() => setActiveTab('types')} className={cn("px-5 py-2.5 rounded-full font-medium text-sm", activeTab === 'types' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>📋 Loại phiếu ({ballotTypes.length})</button>
+        <button onClick={exportExcel} className="px-5 py-2.5 rounded-full font-medium text-sm bg-green-600 text-white hover:bg-green-700">📥 Xuất Excel</button>
       </div>
 
-      {activeTab === 'total' ? <>
+      {activeTab === 'total' && <>
         {/* Chart */}
         <div className="bg-white p-8 rounded-[28px] shadow-sm border border-black/5">
           <h3 className="text-lg font-serif font-bold mb-6">Số phiếu bầu theo ứng viên</h3>
@@ -378,9 +408,34 @@ function ResultsView({ election }: { election: Election }) {
             </tbody>
           </table>
         </div>
-      </> : <>
-        {/* Ballot Types */}
-        <div className="bg-white rounded-[28px] shadow-sm border border-black/5 overflow-hidden">
+      </>}
+
+      {activeTab === 'votecount' && <div className="bg-white rounded-[28px] shadow-sm border border-black/5 overflow-hidden">
+        <div className="p-6 border-b border-black/5"><h3 className="text-lg font-serif font-bold">Phân loại theo số người được bầu</h3><p className="text-sm text-gray-500 mt-1">Bầu {election.soUngVien} lấy {election.soNguoiDuocBau} — hợp lệ: bầu {election.soNguoiDuocBau}→{election.soUngVien > 1 ? election.soUngVien - 1 + ' → ' : ''}gạch {election.soUngVien - election.soNguoiDuocBau}→{election.soUngVien - 1} người</p></div>
+        <table className="w-full text-left">
+          <thead className="bg-[#fcfcf9] text-[#5A5A40] text-xs uppercase tracking-widest font-bold">
+            <tr><th className="px-6 py-3">Loại phiếu</th><th className="px-6 py-3 text-right">Hợp lệ</th><th className="px-6 py-3 text-right">Không hợp lệ</th><th className="px-6 py-3 text-right">Tổng</th></tr>
+          </thead>
+          <tbody className="divide-y divide-black/5">
+            {Array.from({ length: election.soUngVien + 1 }, (_, i) => {
+              const hl = ballotByVoteCount['bau_' + i] || 0;
+              const khl = ballotByVoteCount['bau_' + i + '_khl'] || 0;
+              if (hl === 0 && khl === 0) return null;
+              const isValid = i >= 1 && i <= election.soNguoiDuocBau;
+              return (
+                <tr key={i} className={cn("hover:bg-[#fcfcf9]", isValid && "bg-green-50/50")}>
+                  <td className="px-6 py-4 font-medium">{i === 0 ? 'Phiếu trắng (bầu 0)' : `Bầu ${i} người (gạch ${election.soUngVien - i})`}</td>
+                  <td className="px-6 py-4 text-right font-bold text-green-600">{hl || '-'}</td>
+                  <td className="px-6 py-4 text-right font-bold text-red-500">{khl || '-'}</td>
+                  <td className="px-6 py-4 text-right font-bold">{hl + khl}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>}
+
+      {activeTab === 'types' && <div className="bg-white rounded-[28px] shadow-sm border border-black/5 overflow-hidden">
           <div className="p-6 border-b border-black/5"><h3 className="text-lg font-serif font-bold">Phân loại phiếu theo mẫu gạch</h3></div>
           <table className="w-full text-left">
             <thead className="bg-[#fcfcf9] text-[#5A5A40] text-xs uppercase tracking-widest font-bold">
@@ -397,8 +452,7 @@ function ResultsView({ election }: { election: Election }) {
               ))}
             </tbody>
           </table>
-        </div>
-      </>}
+        </div>}
     </div>
   );
 }

@@ -394,6 +394,7 @@ function getResults(electionId) {
   var bData = bSheet.getDataRange().getValues();
   var totalPhieu = 0, validPhieu = 0, invalidPhieu = 0, blankPhieu = 0;
   var ballotTypes = {}; // pattern → { count, valid }
+  var ballotByVoteCount = {}; // "bau_X" → count
 
   for (var k = 1; k < bData.length; k++) {
     if (bData[k][0] === '') continue;
@@ -411,9 +412,14 @@ function getResults(electionId) {
     if (isValid === true || isValid === 'TRUE') {
       if (pattern === '' || pattern === '0') {
         blankPhieu += count;
+        var bk0 = 'bau_0';
+        ballotByVoteCount[bk0] = (ballotByVoteCount[bk0] || 0) + count;
       } else {
         validPhieu += count;
         var chars = pattern.split('');
+        var numVoted = election.soUngVien - chars.length;
+        var bkV = 'bau_' + numVoted;
+        ballotByVoteCount[bkV] = (ballotByVoteCount[bkV] || 0) + count;
         // Crossed candidates
         for (var m = 0; m < chars.length; m++) {
           if (candidates[chars[m]]) candidates[chars[m]].crossed += count;
@@ -425,6 +431,16 @@ function getResults(electionId) {
       }
     } else {
       invalidPhieu += count;
+      // Also track vote count for invalid ones
+      if (pattern === '' || pattern === '0') {
+        var bk0i = 'bau_0_khl';
+        ballotByVoteCount[bk0i] = (ballotByVoteCount[bk0i] || 0) + count;
+      } else {
+        var numVotedI = election.soUngVien - pattern.split('').length;
+        if (numVotedI < 0) numVotedI = 0;
+        var bkI = 'bau_' + numVotedI + '_khl';
+        ballotByVoteCount[bkI] = (ballotByVoteCount[bkI] || 0) + count;
+      }
     }
   }
 
@@ -454,11 +470,12 @@ function getResults(electionId) {
     results: results,
     stats: { totalPhieu: totalPhieu, validPhieu: validPhieu, invalidPhieu: invalidPhieu, blankPhieu: blankPhieu },
     ballotTypes: typesArr,
+    ballotByVoteCount: ballotByVoteCount,
     progress: {
       phieuPhatRa: election.phieuPhatRa,
       phieuThuVe: election.phieuThuVe,
       daNhap: totalPhieu,
-      conThieu: Math.max(0, election.phieuThuVe - totalPhieu)
+      conThieu: election.phieuThuVe - totalPhieu
     }
   };
 }
