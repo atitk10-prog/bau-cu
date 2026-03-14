@@ -4,15 +4,30 @@
  * ============================================================
  * Paste toàn bộ code này vào Google Sheets → Extensions → Apps Script
  * Deploy → Web App (Execute as: Me, Access: Anyone)
+ *
+ * TẤT CẢ requests đều dùng GET để tránh CORS issues.
+ * Data được encode trong URL param "payload".
  */
 
-// ==================== CORS & API ROUTER ====================
+// ==================== API ROUTER ====================
 
 function doGet(e) {
   var action = e.parameter.action;
+  var payload = {};
+
+  // Parse payload nếu có (cho các action cần data)
+  if (e.parameter.payload) {
+    try {
+      payload = JSON.parse(e.parameter.payload);
+    } catch (err) {
+      return jsonResponse({ error: 'Invalid payload JSON' });
+    }
+  }
+
   var result;
 
   switch (action) {
+    // Read operations
     case 'getConfig':
       result = getConfig();
       break;
@@ -34,61 +49,60 @@ function doGet(e) {
     case 'getDashboard':
       result = getDashboard();
       break;
+
+    // Write operations (data from payload)
+    case 'login':
+      result = login(payload.username, payload.password);
+      break;
+    case 'updateConfig':
+      result = updateConfig(payload.config);
+      break;
+    case 'addCandidate':
+      result = addCandidate(payload.id, payload.name);
+      break;
+    case 'deleteCandidate':
+      result = deleteCandidate(payload.id);
+      break;
+    case 'updateCandidates':
+      result = updateCandidates(payload.candidates);
+      break;
+    case 'addBallot':
+      result = addBallot(payload.ballot, payload.user);
+      break;
+    case 'deleteBallot':
+      result = deleteBallot(payload.id);
+      break;
+    case 'updateReport':
+      result = updateReport(payload.report);
+      break;
+    case 'addUser':
+      result = addUser(payload.username, payload.password, payload.role, payload.displayName);
+      break;
+    case 'deleteUser':
+      result = deleteUser(payload.username);
+      break;
+    case 'updateUser':
+      result = updateUser(payload.username, payload.password, payload.role, payload.displayName);
+      break;
+
     default:
       result = { error: 'Unknown action: ' + action };
   }
 
+  return jsonResponse(result);
+}
+
+function jsonResponse(data) {
   return ContentService
-    .createTextOutput(JSON.stringify(result))
+    .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+// doPost giữ làm backup
 function doPost(e) {
   var data = JSON.parse(e.postData.contents);
-  var action = data.action;
-  var result;
-
-  switch (action) {
-    case 'login':
-      result = login(data.username, data.password);
-      break;
-    case 'updateConfig':
-      result = updateConfig(data.config);
-      break;
-    case 'addCandidate':
-      result = addCandidate(data.id, data.name);
-      break;
-    case 'deleteCandidate':
-      result = deleteCandidate(data.id);
-      break;
-    case 'updateCandidates':
-      result = updateCandidates(data.candidates);
-      break;
-    case 'addBallot':
-      result = addBallot(data.ballot, data.user);
-      break;
-    case 'deleteBallot':
-      result = deleteBallot(data.id);
-      break;
-    case 'updateReport':
-      result = updateReport(data.report);
-      break;
-    case 'addUser':
-      result = addUser(data.username, data.password, data.role, data.displayName);
-      break;
-    case 'deleteUser':
-      result = deleteUser(data.username);
-      break;
-    case 'updateUser':
-      result = updateUser(data.username, data.password, data.role, data.displayName);
-      break;
-    default:
-      result = { error: 'Unknown action: ' + action };
-  }
-
-  return ContentService
-    .createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
+  // Route to doGet with same logic
+  return doGet({ parameter: { action: data.action, payload: JSON.stringify(data) } });
 }
 
 // ==================== HELPER ====================
@@ -103,7 +117,6 @@ function getSheet(name) {
 }
 
 function initSheets() {
-  // CONFIG
   var config = getSheet('CONFIG');
   if (config.getLastRow() === 0) {
     config.appendRow(['key', 'value']);
@@ -114,19 +127,16 @@ function initSheets() {
     config.appendRow(['tong_cu_tri', 300]);
   }
 
-  // CANDIDATES
   var candidates = getSheet('CANDIDATES');
   if (candidates.getLastRow() === 0) {
     candidates.appendRow(['id', 'name']);
   }
 
-  // BALLOTS
   var ballots = getSheet('BALLOTS');
   if (ballots.getLastRow() === 0) {
     ballots.appendRow(['id', 'ballot', 'valid', 'note', 'time', 'user']);
   }
 
-  // REPORT
   var report = getSheet('REPORT');
   if (report.getLastRow() === 0) {
     report.appendRow(['key', 'quoc_hoi', 'hdnd_tp', 'hdnd_xa']);
@@ -136,7 +146,6 @@ function initSheets() {
     report.appendRow(['phieu_con_lai', 0, 0, 0]);
   }
 
-  // USERS
   var users = getSheet('USERS');
   if (users.getLastRow() === 0) {
     users.appendRow(['username', 'password', 'role', 'display_name']);
@@ -187,7 +196,6 @@ function addUser(username, password, role, displayName) {
   var sheet = getSheet('USERS');
   var data = sheet.getDataRange().getValues();
 
-  // Check duplicate
   for (var i = 1; i < data.length; i++) {
     if (data[i][0] === username) {
       return { success: false, error: 'Tài khoản đã tồn tại' };
@@ -290,7 +298,6 @@ function addCandidate(id, name) {
   var sheet = getSheet('CANDIDATES');
   var data = sheet.getDataRange().getValues();
 
-  // Check duplicate ID
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][0]) === String(id)) {
       return { success: false, error: 'Mã ứng viên đã tồn tại' };
@@ -355,7 +362,6 @@ function addBallot(ballot, user) {
   var configSheet = getSheet('CONFIG');
   var candidateSheet = getSheet('CANDIDATES');
 
-  // Get config
   var configData = configSheet.getDataRange().getValues();
   var config = {};
   for (var i = 1; i < configData.length; i++) {
@@ -364,7 +370,6 @@ function addBallot(ballot, user) {
 
   var maxVote = parseInt(config['so_nguoi_duoc_bau']) || 5;
 
-  // Get valid candidate IDs
   var candidateData = candidateSheet.getDataRange().getValues();
   var validIds = [];
   for (var j = 1; j < candidateData.length; j++) {
@@ -373,20 +378,16 @@ function addBallot(ballot, user) {
     }
   }
 
-  // Parse ballot string - each character is a candidate number
   var ballotStr = String(ballot).trim();
   var chars = ballotStr.split('');
 
-  // Validation
   var valid = true;
   var note = 'hợp lệ';
 
-  // Check empty
   if (ballotStr === '' || ballotStr === '0') {
     valid = true;
     note = 'phiếu trắng';
   } else {
-    // Check 1: each number must be a valid candidate
     for (var k = 0; k < chars.length; k++) {
       if (validIds.indexOf(chars[k]) === -1) {
         valid = false;
@@ -395,7 +396,6 @@ function addBallot(ballot, user) {
       }
     }
 
-    // Check 2: no duplicate numbers
     if (valid) {
       var seen = {};
       for (var m = 0; m < chars.length; m++) {
@@ -408,7 +408,6 @@ function addBallot(ballot, user) {
       }
     }
 
-    // Check 3: not exceeding max vote
     if (valid && chars.length > maxVote) {
       valid = false;
       note = 'vượt số bầu (tối đa ' + maxVote + ')';
@@ -454,7 +453,6 @@ function getResults() {
   var ballotSheet = getSheet('BALLOTS');
   var configSheet = getSheet('CONFIG');
 
-  // Config
   var configData = configSheet.getDataRange().getValues();
   var config = {};
   for (var i = 1; i < configData.length; i++) {
@@ -462,7 +460,6 @@ function getResults() {
   }
   var maxVote = parseInt(config['so_nguoi_duoc_bau']) || 5;
 
-  // Candidates
   var candidateData = candidateSheet.getDataRange().getValues();
   var candidates = {};
   for (var j = 1; j < candidateData.length; j++) {
@@ -475,14 +472,11 @@ function getResults() {
     }
   }
 
-  // Count votes from valid ballots
   var ballotData = ballotSheet.getDataRange().getValues();
   var totalBallots = 0;
   var validBallots = 0;
   var invalidBallots = 0;
   var blankBallots = 0;
-
-  // Count by ballot length (bầu 1, bầu 2, ...)
   var ballotByCount = {};
 
   for (var k = 1; k < ballotData.length; k++) {
@@ -514,7 +508,6 @@ function getResults() {
     }
   }
 
-  // Convert to array and calculate percentage
   var results = [];
   for (var id in candidates) {
     var c = candidates[id];
@@ -526,10 +519,8 @@ function getResults() {
     });
   }
 
-  // Sort by votes descending
   results.sort(function(a, b) { return b.votes - a.votes; });
 
-  // Mark elected
   for (var n = 0; n < results.length; n++) {
     results[n].elected = n < maxVote;
     results[n].rank = n + 1;
@@ -598,7 +589,6 @@ function getDashboard() {
 }
 
 // ==================== INIT ====================
-// Run this function once to set up all sheets
 function setupSheets() {
   initSheets();
   SpreadsheetApp.getUi().alert('Đã tạo cấu trúc sheets thành công!');
