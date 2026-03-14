@@ -117,7 +117,8 @@ function ElectionsView({ onSelect, activeId, user, onRefresh }: { onSelect: (e: 
   const refresh = async () => { setLoading(true); try { const r = await api.getElections(user); if (r.success) setElections(r.elections); } catch {} setLoading(false); };
   useEffect(() => { refresh(); }, []);
 
-  const handleAdd = async (e: React.FormEvent) => { e.preventDefault(); const r = await api.addElection({ ...form, user }); if (r.success) { setShowAdd(false); setForm({ name: '', soUngVien: 5, soNguoiDuocBau: 3, phieuPhatRa: 0, phieuThuVe: 0 }); refresh(); onRefresh?.(); } };
+  const [saving, setSaving] = useState(false);
+  const handleAdd = async (e: React.FormEvent) => { e.preventDefault(); if (saving) return; setSaving(true); const r = await api.addElection({ ...form, user }); if (r.success) { setShowAdd(false); setForm({ name: '', soUngVien: 5, soNguoiDuocBau: 3, phieuPhatRa: 0, phieuThuVe: 0 }); refresh(); onRefresh?.(); } setSaving(false); };
   const handleDelete = async (id: string) => { if (confirm('Xóa cuộc bầu cử này?')) { await api.deleteElection(id); refresh(); } };
 
   return (
@@ -154,7 +155,7 @@ function ElectionsView({ onSelect, activeId, user, onRefresh }: { onSelect: (e: 
             <Field label="Phiếu thu về"><input type="number" min="0" value={form.phieuThuVe} onChange={e => setForm({ ...form, phieuThuVe: +e.target.value })} className="inp text-center" /></Field>
           </div>
           <div className="p-3 bg-[#5A5A40]/5 rounded-xl text-sm text-[#5A5A40]">Gạch hợp lệ: từ <b>{form.soUngVien - form.soNguoiDuocBau}</b> đến <b>{form.soUngVien - 1}</b> người</div>
-          <BtnRow onCancel={() => setShowAdd(false)} label="Tạo" />
+          <BtnRow onCancel={() => setShowAdd(false)} label={saving ? 'Đang tạo...' : 'Tạo'} disabled={saving} />
         </form>
       </Modal>}
     </div>
@@ -269,6 +270,9 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
                 </div>
               </div>
               {bulkPattern && <div className="p-3 bg-gray-50 rounded-xl text-sm mb-4">Gạch: <b>{bulkPattern.split('').map(ch => { const c = candidates.find(x => x.id === ch); return c ? c.name : `#${ch}`; }).join(', ')}</b> × {bulkCount || 0} phiếu</div>}
+              {election.phieuThuVe > 0 && <div className={cn("p-3 rounded-xl text-sm mb-4 font-medium", totalCount + (parseInt(bulkCount) || 0) > election.phieuThuVe ? "bg-red-100 text-red-700" : "bg-green-50 text-green-700")}>
+                Còn lại: <b>{Math.max(0, election.phieuThuVe - totalCount)}</b> phiếu{totalCount + (parseInt(bulkCount) || 0) > election.phieuThuVe && <> — ⚠️ VƯỢT QUÁ {totalCount + (parseInt(bulkCount) || 0) - election.phieuThuVe} phiếu!</>}
+              </div>}
               <button onClick={handleBulkSubmit} disabled={submitting || !bulkPattern || !bulkCount} className="px-8 py-3 bg-[#5A5A40] text-white rounded-full font-bold shadow-lg hover:bg-[#4a4a35] disabled:opacity-50">{submitting ? 'Đang lưu...' : 'Lưu loại phiếu'}</button>
             </div>
           )}
@@ -467,7 +471,8 @@ function CandidatesView({ election }: { election: Election }) {
   const [newId, setNewId] = useState(''); const [newName, setNewName] = useState(''); const [loading, setLoading] = useState(true); const [msg, setMsg] = useState('');
   const refresh = async () => { setLoading(true); try { const r = await api.getCandidates(election.id); if (r.success) setCandidates(r.candidates); } catch {} setLoading(false); };
   useEffect(() => { refresh(); }, [election.id]);
-  const handleAdd = async (e: React.FormEvent) => { e.preventDefault(); setMsg(''); const r = await api.addCandidate(election.id, newId, newName); if (r.success) { setNewId(''); setNewName(''); setShowAdd(false); refresh(); } else setMsg(r.error); };
+  const [saving, setSaving] = useState(false);
+  const handleAdd = async (e: React.FormEvent) => { e.preventDefault(); if (saving) return; setSaving(true); setMsg(''); const r = await api.addCandidate(election.id, newId, newName); if (r.success) { setNewId(''); setNewName(''); setShowAdd(false); refresh(); } else setMsg(r.error); setSaving(false); };
   const handleDelete = async (id: string) => { if (confirm('Xóa?')) { await api.deleteCandidate(election.id, id); refresh(); } };
 
   return (
@@ -569,6 +574,6 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
 function Field({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
   return <div><label className="block text-xs font-bold uppercase tracking-widest text-[#5A5A40] mb-2">{label}{required && ' *'}</label>{children}</div>;
 }
-function BtnRow({ onCancel, label }: { onCancel: () => void; label: string }) {
-  return <div className="flex gap-3 pt-2"><button type="button" onClick={onCancel} className="flex-1 py-3 bg-gray-100 text-[#5A5A40] rounded-full font-medium hover:bg-gray-200">Hủy</button><button type="submit" className="flex-1 py-3 bg-[#5A5A40] text-white rounded-full font-medium hover:bg-[#4a4a35]">{label}</button></div>;
+function BtnRow({ onCancel, label, disabled }: { onCancel: () => void; label: string; disabled?: boolean }) {
+  return <div className="flex gap-3 pt-2"><button type="button" onClick={onCancel} className="flex-1 py-3 bg-gray-100 text-[#5A5A40] rounded-full font-medium hover:bg-gray-200">Hủy</button><button type="submit" disabled={disabled} className="flex-1 py-3 bg-[#5A5A40] text-white rounded-full font-medium hover:bg-[#4a4a35] disabled:opacity-50">{label}</button></div>;
 }
