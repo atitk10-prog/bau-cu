@@ -13,19 +13,26 @@ type View = 'elections' | 'report' | 'entry' | 'results' | 'candidates' | 'users
 export default function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => { const s = localStorage.getItem('authUser'); return s ? JSON.parse(s) : null; });
   const [view, setView] = useState<View>('elections');
-  const [activeElection, setActiveElection] = useState<Election | null>(null);
+  const [elections, setElections] = useState<Election[]>([]);
 
   const handleLogin = (user: AuthUser) => { setAuthUser(user); localStorage.setItem('authUser', JSON.stringify(user)); };
   const handleLogout = () => { setAuthUser(null); localStorage.removeItem('authUser'); };
 
+  const loadElections = useCallback(async () => {
+    if (!authUser) return;
+    try { const r = await api.getElections(authUser.username); if (r.success) setElections(r.elections); } catch {}
+  }, [authUser]);
+
+  useEffect(() => { loadElections(); }, [loadElections]);
+
   if (!authUser) return <LoginScreen onLogin={handleLogin} />;
 
-  const navItems: { icon: React.ReactNode; label: string; view: View; needElection?: boolean; adminOnly?: boolean }[] = [
+  const navItems: { icon: React.ReactNode; label: string; view: View; adminOnly?: boolean }[] = [
     { icon: <List size={20} />, label: 'Cuộc bầu cử', view: 'elections' },
     { icon: <FileText size={20} />, label: 'Báo cáo phiếu', view: 'report' },
-    { icon: <Edit3 size={20} />, label: 'Nhập phiếu', view: 'entry', needElection: true },
-    { icon: <BarChart3 size={20} />, label: 'Kết quả', view: 'results', needElection: true },
-    { icon: <ClipboardList size={20} />, label: 'Ứng viên', view: 'candidates', needElection: true },
+    { icon: <Edit3 size={20} />, label: 'Nhập phiếu', view: 'entry' },
+    { icon: <BarChart3 size={20} />, label: 'Kết quả', view: 'results' },
+    { icon: <ClipboardList size={20} />, label: 'Ứng viên', view: 'candidates' },
     { icon: <Users size={20} />, label: 'Quản lý user', view: 'users', adminOnly: true },
   ];
 
@@ -36,9 +43,8 @@ export default function App() {
           <div className="flex items-center gap-3 mb-2"><div className="w-10 h-10 bg-[#5A5A40] rounded-xl flex items-center justify-center text-white"><Vote size={24} /></div><h1 className="text-xl font-serif font-bold">WECVS</h1></div>
           <p className="text-xs text-[#5A5A40] opacity-60 uppercase tracking-widest font-medium">Hệ thống kiểm phiếu</p>
         </div>
-        {activeElection && <div className="mx-4 mb-2 p-3 bg-[#5A5A40]/5 rounded-xl"><p className="text-xs font-bold text-[#5A5A40] uppercase tracking-widest mb-1">Đang chọn</p><p className="text-sm font-medium truncate">{activeElection.name}</p><p className="text-xs text-gray-500">Bầu {activeElection.soUngVien} lấy {activeElection.soNguoiDuocBau}</p></div>}
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.filter(n => (!n.adminOnly || authUser.role === 'admin') && (!n.needElection || activeElection)).map(n => (
+          {navItems.filter(n => !n.adminOnly || authUser.role === 'admin').map(n => (
             <button key={n.view} onClick={() => setView(n.view)} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm", view === n.view ? "bg-[#5A5A40] text-white shadow-md" : "text-[#5A5A40] hover:bg-[#5A5A40]/5")}>
               {n.icon}<span>{n.label}</span>{view === n.view && <ChevronRight size={16} className="ml-auto opacity-60" />}
             </button>
@@ -53,13 +59,34 @@ export default function App() {
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto p-8">
-        {view === 'elections' && <ElectionsView onSelect={(e) => { setActiveElection(e); setView('entry'); }} activeId={activeElection?.id} user={authUser.username} />}
+        {view === 'elections' && <ElectionsView onSelect={() => setView('entry')} activeId={undefined} user={authUser.username} onRefresh={loadElections} />}
         {view === 'report' && <ReportView />}
-        {view === 'entry' && activeElection && <BallotEntryView election={activeElection} user={authUser.username} />}
-        {view === 'results' && activeElection && <ResultsView election={activeElection} />}
-        {view === 'candidates' && activeElection && <CandidatesView election={activeElection} />}
+        {view === 'entry' && <WithElectionTabs elections={elections} user={authUser.username}>{(el) => <BallotEntryView election={el} user={authUser.username} />}</WithElectionTabs>}
+        {view === 'results' && <WithElectionTabs elections={elections} user={authUser.username}>{(el) => <ResultsView election={el} />}</WithElectionTabs>}
+        {view === 'candidates' && <WithElectionTabs elections={elections} user={authUser.username}>{(el) => <CandidatesView election={el} />}</WithElectionTabs>}
         {view === 'users' && <UsersView />}
       </main>
+    </div>
+  );
+}
+
+// ==================== ELECTION TABS WRAPPER ====================
+function WithElectionTabs({ elections, user, children }: { elections: Election[]; user: string; children: (el: Election) => React.ReactNode }) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  if (elections.length === 0) return <div className="text-center py-20"><div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-300"><Vote size={40} /></div><h3 className="text-xl font-serif font-bold text-gray-400 mb-2">Chưa có cuộc bầu cử</h3><p className="text-gray-400">Hãy tạo cuộc bầu cử trước ở mục "Cuộc bầu cử"</p></div>;
+  const active = elections[Math.min(activeIdx, elections.length - 1)];
+  return (
+    <div className="space-y-6">
+      {/* Election Tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {elections.map((el, i) => (
+          <button key={el.id} onClick={() => setActiveIdx(i)} className={cn("px-5 py-2.5 rounded-full font-medium text-sm transition-all whitespace-nowrap", i === Math.min(activeIdx, elections.length - 1) ? "bg-[#5A5A40] text-white shadow-md" : "bg-white text-[#5A5A40] border border-black/10 hover:bg-[#5A5A40]/5")}>
+            {el.name} <span className="opacity-60 text-xs">(B{el.soUngVien} L{el.soNguoiDuocBau})</span>
+          </button>
+        ))}
+      </div>
+      {/* Active election content */}
+      <div key={active.id}>{children(active)}</div>
     </div>
   );
 }
@@ -84,13 +111,13 @@ function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
 }
 
 // ==================== ELECTIONS ====================
-function ElectionsView({ onSelect, activeId, user }: { onSelect: (e: Election) => void; activeId?: string; user: string }) {
+function ElectionsView({ onSelect, activeId, user, onRefresh }: { onSelect: (e: Election) => void; activeId?: string; user: string; onRefresh?: () => void }) {
   const [elections, setElections] = useState<Election[]>([]); const [showAdd, setShowAdd] = useState(false); const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ name: '', soUngVien: 5, soNguoiDuocBau: 3, phieuPhatRa: 0, phieuThuVe: 0 });
   const refresh = async () => { setLoading(true); try { const r = await api.getElections(user); if (r.success) setElections(r.elections); } catch {} setLoading(false); };
   useEffect(() => { refresh(); }, []);
 
-  const handleAdd = async (e: React.FormEvent) => { e.preventDefault(); const r = await api.addElection({ ...form, user }); if (r.success) { setShowAdd(false); setForm({ name: '', soUngVien: 5, soNguoiDuocBau: 3, phieuPhatRa: 0, phieuThuVe: 0 }); refresh(); } };
+  const handleAdd = async (e: React.FormEvent) => { e.preventDefault(); const r = await api.addElection({ ...form, user }); if (r.success) { setShowAdd(false); setForm({ name: '', soUngVien: 5, soNguoiDuocBau: 3, phieuPhatRa: 0, phieuThuVe: 0 }); refresh(); onRefresh?.(); } };
   const handleDelete = async (id: string) => { if (confirm('Xóa cuộc bầu cử này?')) { await api.deleteElection(id); refresh(); } };
 
   return (
