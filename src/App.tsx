@@ -179,7 +179,9 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
       if (c.success) setCandidates(c.candidates);
       if (b.success) {
         setRecentBallots(b.ballots.slice(-15).reverse());
-        setTotalCount(b.ballots.reduce((sum: number, bl: Ballot) => sum + (bl.count || 1), 0));
+        const total = b.ballots.reduce((sum: number, bl: Ballot) => sum + (Number(bl.count) || 1), 0);
+        console.log('Ballots loaded:', b.ballots.length, 'entries, totalCount:', total, 'sample:', b.ballots[0]);
+        setTotalCount(total);
       }
     });
   }, [election.id]);
