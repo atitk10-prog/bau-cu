@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import * as api from './api';
 import { Election, Candidate, Ballot, BallotType, Result, Stats, Progress, Report, ReportRow, AuthUser, User } from './types';
-import { LayoutDashboard, Vote, LogOut, Settings, ChevronRight, AlertCircle, CheckCircle2, XCircle, BarChart3, Trash2, Users, FileText, UserPlus, ClipboardList, Edit3, PlusCircle, RefreshCw, Lock, List } from 'lucide-react';
+import { LayoutDashboard, Vote, LogOut, Settings, ChevronRight, AlertCircle, CheckCircle2, XCircle, BarChart3, Trash2, Users, FileText, UserPlus, ClipboardList, Edit3, PlusCircle, RefreshCw, Lock, List, Menu, X as XIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -14,6 +14,7 @@ export default function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(() => { const s = localStorage.getItem('authUser'); return s ? JSON.parse(s) : null; });
   const [view, setView] = useState<View>('elections');
   const [elections, setElections] = useState<Election[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogin = (user: AuthUser) => { setAuthUser(user); localStorage.setItem('authUser', JSON.stringify(user)); };
   const handleLogout = () => { setAuthUser(null); localStorage.removeItem('authUser'); };
@@ -28,44 +29,55 @@ export default function App() {
   if (!authUser) return <LoginScreen onLogin={handleLogin} />;
 
   const navItems: { icon: React.ReactNode; label: string; view: View; adminOnly?: boolean }[] = [
-    { icon: <List size={20} />, label: 'Cuộc bầu cử', view: 'elections' },
-    { icon: <FileText size={20} />, label: 'Báo cáo phiếu', view: 'report' },
+    { icon: <List size={20} />, label: 'Bầu cử', view: 'elections' },
+    { icon: <ClipboardList size={20} />, label: 'Ứng viên', view: 'candidates' },
     { icon: <Edit3 size={20} />, label: 'Nhập phiếu', view: 'entry' },
     { icon: <BarChart3 size={20} />, label: 'Kết quả', view: 'results' },
-    { icon: <ClipboardList size={20} />, label: 'Ứng viên', view: 'candidates' },
-    { icon: <Users size={20} />, label: 'Quản lý user', view: 'users', adminOnly: true },
+    { icon: <FileText size={20} />, label: 'Báo cáo', view: 'report' },
+    { icon: <Users size={20} />, label: 'Users', view: 'users', adminOnly: true },
   ];
+  const filteredNav = navItems.filter(n => !n.adminOnly || authUser.role === 'admin');
+  const switchView = (v: View) => { setView(v); setSidebarOpen(false); };
 
   return (
-    <div className="min-h-screen bg-[#f5f5f0] flex">
-      <aside className="w-72 bg-white border-r border-black/5 flex flex-col">
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-2"><div className="w-10 h-10 bg-[#5A5A40] rounded-xl flex items-center justify-center text-white"><Vote size={24} /></div><h1 className="text-xl font-serif font-bold">WECVS</h1></div>
-          <p className="text-xs text-[#5A5A40] opacity-60 uppercase tracking-widest font-medium">Hệ thống kiểm phiếu</p>
+    <div className="min-h-screen bg-[#f5f5f0] flex flex-col lg:flex-row">
+      {/* Mobile top bar */}
+      <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-black/5 sticky top-0 z-40">
+        <div className="flex items-center gap-2"><div className="w-8 h-8 bg-[#5A5A40] rounded-lg flex items-center justify-center text-white"><Vote size={18} /></div><span className="font-serif font-bold">WECVS</span></div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-[#5A5A40] truncate max-w-[100px]">{authUser.displayName || authUser.username}</span>
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-gray-100">{sidebarOpen ? <XIcon size={22} /> : <Menu size={22} />}</button>
         </div>
+      </div>
+      {/* Mobile slide menu */}
+      {sidebarOpen && <div className="lg:hidden bg-white border-b border-black/5 px-4 py-3 space-y-1 shadow-lg z-30">
+        {filteredNav.map(n => (<button key={n.view} onClick={() => switchView(n.view)} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm", view === n.view ? "bg-[#5A5A40] text-white" : "text-[#5A5A40]")}>{n.icon}<span>{n.label}</span></button>))}
+        <button onClick={handleLogout} className="w-full py-3 flex items-center justify-center gap-2 text-sm text-red-600 mt-2 border-t border-black/5 pt-3"><LogOut size={16} />Đăng xuất</button>
+      </div>}
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-72 bg-white border-r border-black/5 flex-col shrink-0">
+        <div className="p-6"><div className="flex items-center gap-3 mb-2"><div className="w-10 h-10 bg-[#5A5A40] rounded-xl flex items-center justify-center text-white"><Vote size={24} /></div><h1 className="text-xl font-serif font-bold">WECVS</h1></div><p className="text-xs text-[#5A5A40] opacity-60 uppercase tracking-widest font-medium">Hệ thống kiểm phiếu</p></div>
         <nav className="flex-1 p-4 space-y-1">
-          {navItems.filter(n => !n.adminOnly || authUser.role === 'admin').map(n => (
-            <button key={n.view} onClick={() => setView(n.view)} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm", view === n.view ? "bg-[#5A5A40] text-white shadow-md" : "text-[#5A5A40] hover:bg-[#5A5A40]/5")}>
-              {n.icon}<span>{n.label}</span>{view === n.view && <ChevronRight size={16} className="ml-auto opacity-60" />}
-            </button>
-          ))}
+          {filteredNav.map(n => (<button key={n.view} onClick={() => setView(n.view)} className={cn("w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm", view === n.view ? "bg-[#5A5A40] text-white shadow-md" : "text-[#5A5A40] hover:bg-[#5A5A40]/5")}>{n.icon}<span>{n.label}</span>{view === n.view && <ChevronRight size={16} className="ml-auto opacity-60" />}</button>))}
         </nav>
         <div className="p-4 border-t border-black/5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 bg-[#5A5A40] rounded-full flex items-center justify-center text-white text-sm font-bold">{(authUser.displayName || authUser.username).charAt(0).toUpperCase()}</div>
-            <div className="overflow-hidden"><p className="text-sm font-medium truncate">{authUser.displayName || authUser.username}</p><p className="text-xs text-[#5A5A40] capitalize">{authUser.role}</p></div>
-          </div>
+          <div className="flex items-center gap-3 mb-3"><div className="w-9 h-9 bg-[#5A5A40] rounded-full flex items-center justify-center text-white text-sm font-bold">{(authUser.displayName || authUser.username).charAt(0).toUpperCase()}</div><div className="overflow-hidden"><p className="text-sm font-medium truncate">{authUser.displayName || authUser.username}</p><p className="text-xs text-[#5A5A40] capitalize">{authUser.role}</p></div></div>
           <button onClick={handleLogout} className="w-full py-2 flex items-center justify-center gap-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"><LogOut size={16} />Đăng xuất</button>
         </div>
       </aside>
-      <main className="flex-1 overflow-y-auto p-8">
-        {view === 'elections' && <ElectionsView onSelect={() => setView('entry')} activeId={undefined} user={authUser.username} onRefresh={loadElections} />}
+      {/* Main content */}
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 pb-24 lg:pb-8">
+        {view === 'elections' && <ElectionsView onSelect={() => switchView('candidates')} activeId={undefined} user={authUser.username} onRefresh={loadElections} />}
         {view === 'report' && <ReportView />}
         {view === 'entry' && <WithElectionTabs elections={elections} user={authUser.username}>{(el) => <BallotEntryView election={el} user={authUser.username} />}</WithElectionTabs>}
         {view === 'results' && <WithElectionTabs elections={elections} user={authUser.username}>{(el) => <ResultsView election={el} />}</WithElectionTabs>}
         {view === 'candidates' && <WithElectionTabs elections={elections} user={authUser.username}>{(el) => <CandidatesView election={el} />}</WithElectionTabs>}
         {view === 'users' && <UsersView />}
       </main>
+      {/* Mobile bottom nav */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-black/5 flex justify-around py-2 px-1 z-40">
+        {filteredNav.slice(0, 5).map(n => (<button key={n.view} onClick={() => switchView(n.view)} className={cn("flex flex-col items-center gap-0.5 py-1 px-2 rounded-lg text-[10px] font-medium min-w-[56px]", view === n.view ? "text-[#5A5A40] bg-[#5A5A40]/10" : "text-gray-400")}>{n.icon}<span>{n.label}</span></button>))}
+      </div>
     </div>
   );
 }
