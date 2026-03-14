@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "Election": {
+      "title": "Election",
+      "description": "Metadata for an election event",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the election" },
+        "level": { "type": "string", "description": "Level (National, City, District, etc.)" },
+        "maxVote": { "type": "integer", "description": "Maximum number of candidates a voter can select" },
+        "status": { "type": "string", "enum": ["draft", "active", "completed"], "description": "Current status of the election" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string", "description": "UID of the admin who created it" }
+      },
+      "required": ["name", "maxVote", "status"]
+    },
+    "Candidate": {
+      "title": "Candidate",
+      "description": "A candidate in an election",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "code": { "type": "string", "description": "Candidate number or code" },
+        "order": { "type": "integer", "description": "Display order" }
+      },
+      "required": ["name", "code"]
+    },
+    "Ballot": {
+      "title": "Ballot",
+      "description": "A single vote entry",
+      "type": "object",
+      "properties": {
+        "voterId": { "type": "string", "description": "Optional voter reference" },
+        "crossedCandidateIds": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "List of candidate IDs that were crossed out (NOT voted for)" 
+        },
+        "votedCandidateIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of candidate IDs that were NOT crossed out (VOTED for)"
+        },
+        "isValid": { "type": "boolean", "description": "Whether the ballot is valid based on maxVote" },
+        "isBlank": { "type": "boolean", "description": "Whether the ballot is blank (all crossed or none voted)" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "enteredBy": { "type": "string", "description": "UID of the election team member" }
+      },
+      "required": ["crossedCandidateIds", "votedCandidateIds", "isValid"]
+    },
+    "User": {
+      "title": "User",
+      "description": "System user with roles",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "team", "monitor"] },
+        "displayName": { "type": "string" }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/elections/{electionId}": {
+      "schema": "Election",
+      "description": "Election metadata"
+    },
+    "/elections/{electionId}/candidates/{candidateId}": {
+      "schema": "Candidate",
+      "description": "Candidates for a specific election"
+    },
+    "/elections/{electionId}/ballots/{ballotId}": {
+      "schema": "Ballot",
+      "description": "Ballots cast in a specific election"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and roles"
+    }
+  }
+}

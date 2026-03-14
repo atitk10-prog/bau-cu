@@ -1,0 +1,128 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: elections
+// Fields:
+//   - name: string (required)
+//   - level: string
+//   - maxVote: number (required)
+//   - status: string (required, 'draft'|'active'|'completed')
+//   - createdAt: timestamp
+//   - createdBy: string (uid)
+//
+// Collection: elections/{electionId}/candidates
+// Fields:
+//   - name: string (required)
+//   - code: string (required)
+//   - order: number
+//
+// Collection: elections/{electionId}/ballots
+// Fields:
+//   - crossedCandidateIds: list (required)
+//   - votedCandidateIds: list (required)
+//   - isValid: bool (required)
+//   - isBlank: bool
+//   - createdAt: timestamp
+//   - enteredBy: string (uid)
+//
+// Collection: users
+// Fields:
+//   - email: string (required)
+//   - role: string (required, 'admin'|'team'|'monitor')
+//   - displayName: string
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "vanthihanh1962@gmail.com" && request.auth.token.email_verified == true) ||
+         (request.auth.token.email == "at.it.k10@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isTeam() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'team' || isAdmin());
+    }
+
+    function isMonitor() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'monitor' || isTeam());
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidElection(data) {
+      return data.keys().hasAll(['name', 'maxVote', 'status']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.maxVote is int && data.maxVote > 0 &&
+             data.status in ['draft', 'active', 'completed'];
+    }
+
+    function isValidCandidate(data) {
+      return data.keys().hasAll(['name', 'code']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.code is string && data.code.size() > 0 && data.code.size() < 20;
+    }
+
+    function isValidBallot(data) {
+      return data.keys().hasAll(['crossedCandidateIds', 'votedCandidateIds', 'isValid']) &&
+             data.crossedCandidateIds is list &&
+             data.votedCandidateIds is list &&
+             data.isValid is bool;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role']) &&
+             isValidEmail(data.email) &&
+             data.role in ['admin', 'team', 'monitor'];
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(request.resource.data) && request.resource.data.role == 'monitor'; // Default to monitor
+      allow update: if isAdmin() && isValidUser(request.resource.data);
+    }
+
+    match /elections/{electionId} {
+      allow read: if isMonitor();
+      allow create: if isAdmin() && isValidElection(request.resource.data);
+      allow update: if isAdmin() && isValidElection(request.resource.data);
+      allow delete: if isAdmin();
+
+      match /candidates/{candidateId} {
+        allow read: if isMonitor();
+        allow create, update, delete: if isAdmin() && isValidCandidate(request.resource.data);
+      }
+
+      match /ballots/{ballotId} {
+        allow read: if isMonitor();
+        allow create: if isTeam() && isValidBallot(request.resource.data);
+        allow update: if isTeam() && isValidBallot(request.resource.data);
+        allow delete: if isAdmin();
+      }
+    }
+  }
+}

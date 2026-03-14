@@ -1,0 +1,5 @@
+{
+  "name": "Hệ thống Kiểm phiếu Bầu cử (WECVS)",
+  "description": "Hệ thống Web hỗ trợ kiểm phiếu, tự động phân loại và tổng hợp kết quả bầu cử minh bạch.",
+  "requestFramePermissions": []
+}
