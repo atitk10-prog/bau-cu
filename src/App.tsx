@@ -239,59 +239,59 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="text-3xl font-serif font-bold">{election.name}</h2>
-        <p className="text-[#5A5A40] italic">Bầu {election.soUngVien} lấy {election.soNguoiDuocBau} • Gạch hợp lệ: {minGach}→{maxGach} người</p>
+        <h2 className="text-xl md:text-3xl font-serif font-bold">{election.name}</h2>
+        <p className="text-[#5A5A40] italic text-sm md:text-base">Bầu {election.soUngVien} lấy {election.soNguoiDuocBau} • Gạch: {minGach}→{maxGach}</p>
       </header>
 
       {/* Tabs */}
       <div className="flex gap-2">
-        <button onClick={() => setTab('manual')} className={cn("px-5 py-2.5 rounded-full font-medium text-sm transition-all", tab === 'manual' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>✏️ Nhập thủ công</button>
-        <button onClick={() => setTab('bulk')} className={cn("px-5 py-2.5 rounded-full font-medium text-sm transition-all", tab === 'bulk' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>📦 Nhập theo loại phiếu</button>
+        <button onClick={() => setTab('manual')} className={cn("px-3 md:px-5 py-2 md:py-2.5 rounded-full font-medium text-xs md:text-sm transition-all", tab === 'manual' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>✏️ Thủ công</button>
+        <button onClick={() => setTab('bulk')} className={cn("px-3 md:px-5 py-2 md:py-2.5 rounded-full font-medium text-xs md:text-sm transition-all", tab === 'bulk' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>📦 Loại phiếu</button>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-8">
         <div className="xl:col-span-2 space-y-6">
           {tab === 'manual' ? (
-            <div className={cn("bg-white p-10 rounded-[32px] shadow-sm border-2 transition-all", status === 'valid' ? "border-green-300" : status === 'invalid' ? "border-red-300" : status === 'success' ? "border-blue-300" : "border-black/5")}>
-              <div className={cn("h-1.5 rounded-full mb-8 transition-colors", status === 'valid' ? "bg-green-500" : status === 'invalid' ? "bg-red-500" : status === 'success' ? "bg-blue-500" : "bg-[#5A5A40]")} />
-              <div className="flex items-center gap-4 mb-6">
-                <span className="text-4xl font-serif font-bold text-gray-200">#{totalCount + 1}</span>
+            <div className={cn("bg-white p-5 md:p-10 rounded-2xl md:rounded-[32px] shadow-sm border-2 transition-all", status === 'valid' ? "border-green-300" : status === 'invalid' ? "border-red-300" : status === 'success' ? "border-blue-300" : "border-black/5")}>
+              <div className={cn("h-1.5 rounded-full mb-4 md:mb-8 transition-colors", status === 'valid' ? "bg-green-500" : status === 'invalid' ? "bg-red-500" : status === 'success' ? "bg-blue-500" : "bg-[#5A5A40]")} />
+              <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-6 flex-wrap">
+                <span className="text-2xl md:text-4xl font-serif font-bold text-gray-200">#{totalCount + 1}</span>
                 <span className="text-sm text-gray-400">Phiếu tiếp theo • Đã nhập: <b className="text-[#5A5A40]">{totalCount}</b>{election.phieuThuVe > 0 && <> / {election.phieuThuVe}{totalCount >= election.phieuThuVe && <span className="text-red-500 font-bold ml-1"> ⚠ ĐÃ ĐỦ!</span>}</>}</span>
               </div>
               <label className="block text-xs font-bold uppercase tracking-widest text-[#5A5A40] mb-3">Nhập số ứng viên bị GẠCH</label>
-              <input type="text" value={ballot} onChange={e => setBallot(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown} placeholder="VD: 24 (gạch ứng viên 2 và 4)" autoFocus
-                className={cn("w-full text-center text-5xl font-serif font-bold py-6 rounded-2xl border-2 outline-none transition-all tracking-[0.5em]",
+              <input type="text" value={ballot} onChange={e => setBallot(e.target.value.replace(/[^0-9]/g, ''))} onKeyDown={handleKeyDown} placeholder="VD: 24" autoFocus
+                className={cn("w-full text-center text-3xl md:text-5xl font-serif font-bold py-4 md:py-6 rounded-xl md:rounded-2xl border-2 outline-none transition-all tracking-[0.3em] md:tracking-[0.5em]",
                   status === 'valid' ? "border-green-300 bg-green-50/30 text-green-700" : status === 'invalid' ? "border-red-300 bg-red-50/30 text-red-700" : status === 'success' ? "border-blue-300 bg-blue-50/30 text-blue-700" : "border-gray-200 bg-gray-50 focus:border-[#5A5A40]")} />
               {note && <div className={cn("mt-4 p-3 rounded-xl text-sm font-medium", status === 'valid' ? "bg-green-50 text-green-700" : status === 'invalid' ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700")}>{note}</div>}
               {status === 'success' && <div className="mt-4 p-3 rounded-xl bg-blue-50 text-blue-700 text-sm font-medium text-center">✓ Đã lưu! Nhập phiếu tiếp...</div>}
-              <div className="mt-8 flex justify-between items-center">
-                <span className="text-sm text-gray-400">Nhấn <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-bold">Enter</kbd> để lưu nhanh</span>
-                <button onClick={handleManualSubmit} disabled={submitting} className="px-8 py-3 bg-[#5A5A40] text-white rounded-full font-bold shadow-lg hover:bg-[#4a4a35] disabled:opacity-50">Lưu phiếu</button>
+              <div className="mt-4 md:mt-8 flex justify-between items-center gap-3">
+                <span className="text-xs md:text-sm text-gray-400 hidden md:inline">Nhấn <kbd className="px-2 py-1 bg-gray-100 rounded text-xs font-bold">Enter</kbd> để lưu</span>
+                <button onClick={handleManualSubmit} disabled={submitting} className="px-6 md:px-8 py-3 bg-[#5A5A40] text-white rounded-full font-bold shadow-lg hover:bg-[#4a4a35] disabled:opacity-50 w-full md:w-auto">Lưu phiếu</button>
               </div>
             </div>
           ) : (
-            <div className="bg-white p-10 rounded-[32px] shadow-sm border border-black/5">
-              <h3 className="text-xl font-serif font-bold mb-6">Nhập theo loại phiếu</h3>
-              <p className="text-sm text-gray-500 mb-6">Nhập mẫu phiếu gạch (VD: "12" = gạch ứng viên 1,2) và số lượng phiếu có cùng mẫu đó.</p>
-              <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="bg-white p-5 md:p-10 rounded-2xl md:rounded-[32px] shadow-sm border border-black/5">
+              <h3 className="text-lg md:text-xl font-serif font-bold mb-4 md:mb-6">Nhập theo loại phiếu</h3>
+              <p className="text-xs md:text-sm text-gray-500 mb-4 md:mb-6">Mẫu gạch (VD: "12" = gạch UV 1,2) + số lượng</p>
+              <div className="grid grid-cols-2 gap-3 md:gap-4 mb-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-[#5A5A40] mb-2">Mẫu gạch</label>
-                  <input type="text" value={bulkPattern} onChange={e => setBulkPattern(e.target.value.replace(/[^0-9]/g, ''))} className="inp text-center text-2xl font-bold tracking-[0.3em]" placeholder="VD: 12" />
+                  <input type="text" value={bulkPattern} onChange={e => setBulkPattern(e.target.value.replace(/[^0-9]/g, ''))} className="inp text-center text-lg md:text-2xl font-bold tracking-[0.2em] md:tracking-[0.3em]" placeholder="12" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-[#5A5A40] mb-2">Số lượng phiếu</label>
-                  <input type="number" min="1" value={bulkCount} onChange={e => setBulkCount(e.target.value)} className="inp text-center text-2xl font-bold" placeholder="50" />
+                  <input type="number" min="1" value={bulkCount} onChange={e => setBulkCount(e.target.value)} className="inp text-center text-lg md:text-2xl font-bold" placeholder="50" />
                 </div>
               </div>
               {bulkPattern && <div className="p-3 bg-gray-50 rounded-xl text-sm mb-4">Gạch: <b>{bulkPattern.split('').map(ch => { const c = candidates.find(x => x.id === ch); return c ? c.name : `#${ch}`; }).join(', ')}</b> × {bulkCount || 0} phiếu</div>}
               {election.phieuThuVe > 0 && <div className={cn("p-3 rounded-xl text-sm mb-4 font-medium", totalCount + (parseInt(bulkCount) || 0) > election.phieuThuVe ? "bg-red-100 text-red-700" : "bg-green-50 text-green-700")}>
                 Còn lại: <b>{Math.max(0, election.phieuThuVe - totalCount)}</b> phiếu{totalCount + (parseInt(bulkCount) || 0) > election.phieuThuVe && <> — ⚠️ VƯỢT QUÁ {totalCount + (parseInt(bulkCount) || 0) - election.phieuThuVe} phiếu!</>}
               </div>}
-              <button onClick={handleBulkSubmit} disabled={submitting || !bulkPattern || !bulkCount} className="px-8 py-3 bg-[#5A5A40] text-white rounded-full font-bold shadow-lg hover:bg-[#4a4a35] disabled:opacity-50">{submitting ? 'Đang lưu...' : 'Lưu loại phiếu'}</button>
+              <button onClick={handleBulkSubmit} disabled={submitting || !bulkPattern || !bulkCount} className="w-full md:w-auto px-6 md:px-8 py-3 bg-[#5A5A40] text-white rounded-full font-bold shadow-lg hover:bg-[#4a4a35] disabled:opacity-50">{submitting ? 'Đang lưu...' : 'Lưu loại phiếu'}</button>
             </div>
           )}
           {/* Candidate reference */}
-          <div className="bg-white p-5 rounded-[20px] shadow-sm border border-black/5">
+          <div className="bg-white p-3 md:p-5 rounded-xl md:rounded-[20px] shadow-sm border border-black/5">
             <h4 className="text-xs font-bold uppercase tracking-widest text-[#5A5A40] mb-3">Danh sách ứng viên</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {candidates.map(c => <div key={c.id} className={cn("px-3 py-2 rounded-lg text-sm border", ballot.includes(c.id) || bulkPattern.includes(c.id) ? "bg-red-500 text-white border-red-500" : "bg-gray-50 border-gray-100")}><b>{c.id}.</b> {c.name}</div>)}
@@ -361,66 +361,66 @@ function ResultsView({ election }: { election: Election }) {
   return (
     <div className="space-y-6">
       <header className="flex justify-between items-center">
-        <div><h2 className="text-3xl font-serif font-bold">{election.name} — Kết quả</h2><p className="text-[#5A5A40] italic">Bầu {election.soUngVien} lấy {election.soNguoiDuocBau}</p></div>
+        <div><h2 className="text-xl md:text-3xl font-serif font-bold">{election.name} — Kết quả</h2><p className="text-[#5A5A40] italic text-sm">Bầu {election.soUngVien} lấy {election.soNguoiDuocBau}</p></div>
         <button onClick={refresh} disabled={loading} className="p-3 bg-white rounded-xl shadow-sm border hover:bg-gray-50 disabled:opacity-50"><RefreshCw size={20} className={cn("text-[#5A5A40]", loading && "animate-spin")} /></button>
       </header>
 
-      <div className={cn("bg-white p-6 rounded-[24px] shadow-sm border", progress.daNhap > progress.phieuThuVe && progress.phieuThuVe > 0 ? "border-red-300 bg-red-50/30" : "border-black/5")}>
-        <h3 className="text-sm font-bold uppercase tracking-widest text-[#5A5A40] mb-3">Tiến độ nhập phiếu</h3>
-        <div className="flex items-center gap-6 mb-3">
-          <div><span className="text-xs text-gray-400">Phát ra</span><p className="text-xl font-bold">{progress.phieuPhatRa}</p></div>
-          <div><span className="text-xs text-gray-400">Thu về</span><p className="text-xl font-bold">{progress.phieuThuVe}</p></div>
-          <div><span className="text-xs text-gray-400">Đã nhập</span><p className={cn("text-xl font-bold", progress.daNhap > progress.phieuThuVe && progress.phieuThuVe > 0 ? "text-red-600" : "text-green-600")}>{progress.daNhap}</p></div>
-          <div><span className="text-xs text-gray-400">{progress.conThieu >= 0 ? 'Còn thiếu' : 'Dư'}</span><p className={cn("text-xl font-bold", progress.conThieu < 0 ? "text-red-600" : progress.conThieu === 0 ? "text-green-600" : "text-orange-500")}>{progress.conThieu < 0 ? `+${Math.abs(progress.conThieu)}` : progress.conThieu}</p></div>
+      <div className={cn("bg-white p-4 md:p-6 rounded-xl md:rounded-[24px] shadow-sm border", progress.daNhap > progress.phieuThuVe && progress.phieuThuVe > 0 ? "border-red-300 bg-red-50/30" : "border-black/5")}>
+        <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest text-[#5A5A40] mb-3">Tiến độ nhập phiếu</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-3">
+          <div><span className="text-xs text-gray-400">Phát ra</span><p className="text-lg md:text-xl font-bold">{progress.phieuPhatRa}</p></div>
+          <div><span className="text-xs text-gray-400">Thu về</span><p className="text-lg md:text-xl font-bold">{progress.phieuThuVe}</p></div>
+          <div><span className="text-xs text-gray-400">Đã nhập</span><p className={cn("text-lg md:text-xl font-bold", progress.daNhap > progress.phieuThuVe && progress.phieuThuVe > 0 ? "text-red-600" : "text-green-600")}>{progress.daNhap}</p></div>
+          <div><span className="text-xs text-gray-400">{progress.conThieu >= 0 ? 'Còn thiếu' : 'Dư'}</span><p className={cn("text-lg md:text-xl font-bold", progress.conThieu < 0 ? "text-red-600" : progress.conThieu === 0 ? "text-green-600" : "text-orange-500")}>{progress.conThieu < 0 ? `+${Math.abs(progress.conThieu)}` : progress.conThieu}</p></div>
         </div>
         {progress.daNhap > progress.phieuThuVe && progress.phieuThuVe > 0 && <div className="p-3 bg-red-100 text-red-700 rounded-xl text-sm font-medium mb-3">⚠️ Đã nhập VƯỢT QUÁ số phiếu thu về! Dư <b>{progress.daNhap - progress.phieuThuVe}</b> phiếu — vui lòng kiểm tra lại.</div>}
         {progress.phieuThuVe > 0 && <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden"><div className={cn("h-full rounded-full transition-all", progress.daNhap > progress.phieuThuVe ? "bg-red-500" : "bg-[#5A5A40]")} style={{ width: `${Math.min(100, (progress.daNhap / progress.phieuThuVe) * 100)}%` }} /></div>}
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <SC label="Tổng phiếu" value={stats.totalPhieu} color="text-blue-500" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <SC label="Tổng" value={stats.totalPhieu} color="text-blue-500" />
         <SC label="Hợp lệ" value={stats.validPhieu} color="text-green-500" />
-        <SC label="Không hợp lệ" value={stats.invalidPhieu} color="text-red-500" />
-        <SC label="Phiếu trắng" value={stats.blankPhieu} color="text-gray-400" />
+        <SC label="KHL" value={stats.invalidPhieu} color="text-red-500" />
+        <SC label="Trắng" value={stats.blankPhieu} color="text-gray-400" />
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 flex-wrap">
-        <button onClick={() => setActiveTab('total')} className={cn("px-5 py-2.5 rounded-full font-medium text-sm", activeTab === 'total' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>📊 Tổng kết quả</button>
-        <button onClick={() => setActiveTab('votecount')} className={cn("px-5 py-2.5 rounded-full font-medium text-sm", activeTab === 'votecount' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>🗳️ Phân loại bầu</button>
-        <button onClick={() => setActiveTab('types')} className={cn("px-5 py-2.5 rounded-full font-medium text-sm", activeTab === 'types' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>📋 Loại phiếu ({ballotTypes.length})</button>
-        <button onClick={exportExcel} className="px-5 py-2.5 rounded-full font-medium text-sm bg-green-600 text-white hover:bg-green-700">📥 Xuất Excel</button>
+      <div className="flex gap-1.5 md:gap-2 flex-wrap">
+        <button onClick={() => setActiveTab('total')} className={cn("px-3 md:px-5 py-2 md:py-2.5 rounded-full font-medium text-xs md:text-sm", activeTab === 'total' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>📊 Tổng</button>
+        <button onClick={() => setActiveTab('votecount')} className={cn("px-3 md:px-5 py-2 md:py-2.5 rounded-full font-medium text-xs md:text-sm", activeTab === 'votecount' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>🗳️ Phân loại</button>
+        <button onClick={() => setActiveTab('types')} className={cn("px-3 md:px-5 py-2 md:py-2.5 rounded-full font-medium text-xs md:text-sm", activeTab === 'types' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>📋 Loại ({ballotTypes.length})</button>
+        <button onClick={exportExcel} className="px-3 md:px-5 py-2 md:py-2.5 rounded-full font-medium text-xs md:text-sm bg-green-600 text-white hover:bg-green-700">📥 Excel</button>
       </div>
 
       {activeTab === 'total' && <>
         {/* Chart */}
-        <div className="bg-white p-8 rounded-[28px] shadow-sm border border-black/5">
-          <h3 className="text-lg font-serif font-bold mb-6">Số phiếu bầu theo ứng viên</h3>
-          <div className="h-[350px]">
+        <div className="bg-white p-4 md:p-8 rounded-xl md:rounded-[28px] shadow-sm border border-black/5">
+          <h3 className="text-base md:text-lg font-serif font-bold mb-4 md:mb-6">Số phiếu bầu theo ứng viên</h3>
+          <div className="h-[250px] md:h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={results} layout="vertical" margin={{ left: 40, right: 40 }}>
+              <BarChart data={results} layout="vertical" margin={{ left: 10, right: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" /><XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 12, fill: '#5A5A40' }} />
+                <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 11, fill: '#5A5A40' }} />
                 <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                <Bar dataKey="votes" radius={[0, 4, 4, 0]} barSize={28}>{results.map((r, i) => <Cell key={i} fill={r.elected ? '#5A5A40' : '#d1d1c1'} />)}</Bar>
+                <Bar dataKey="votes" radius={[0, 4, 4, 0]} barSize={24}>{results.map((r, i) => <Cell key={i} fill={r.elected ? '#5A5A40' : '#d1d1c1'} />)}</Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
         {/* Table */}
-        <div className="bg-white rounded-[28px] shadow-sm border border-black/5 overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-[#fcfcf9] text-[#5A5A40] text-xs uppercase tracking-widest font-bold">
-              <tr><th className="px-6 py-3">Hạng</th><th className="px-6 py-3">Ứng viên</th><th className="px-6 py-3 text-right">Phiếu bầu</th><th className="px-6 py-3 text-right">Bị gạch</th><th className="px-6 py-3 text-right">Tỷ lệ</th><th className="px-6 py-3 text-center">Kết quả</th></tr>
+        <div className="bg-white rounded-xl md:rounded-[28px] shadow-sm border border-black/5 overflow-x-auto">
+          <table className="w-full text-left min-w-[500px]">
+            <thead className="bg-[#fcfcf9] text-[#5A5A40] text-[10px] md:text-xs uppercase tracking-wider md:tracking-widest font-bold">
+              <tr><th className="px-3 md:px-6 py-2 md:py-3">#</th><th className="px-3 md:px-6 py-2 md:py-3">Ứng viên</th><th className="px-3 md:px-6 py-2 md:py-3 text-right">Bầu</th><th className="px-3 md:px-6 py-2 md:py-3 text-right">Gạch</th><th className="px-3 md:px-6 py-2 md:py-3 text-right">%</th><th className="px-3 md:px-6 py-2 md:py-3 text-center">KQ</th></tr>
             </thead>
             <tbody className="divide-y divide-black/5">
               {results.map((r, i) => (
                 <tr key={r.id} className={cn("hover:bg-[#fcfcf9]", i < election.soNguoiDuocBau && "bg-[#5A5A40]/5")}>
-                  <td className="px-6 py-4 font-serif font-bold text-lg">{r.rank}</td><td className="px-6 py-4 font-medium">{r.name}</td>
-                  <td className="px-6 py-4 text-right font-bold text-green-700">{r.votes}</td><td className="px-6 py-4 text-right text-red-400">{r.crossed}</td>
-                  <td className="px-6 py-4 text-right">{r.percent}%</td>
-                  <td className="px-6 py-4 text-center">{r.elected ? <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold uppercase">Trúng cử</span> : <span className="px-3 py-1 bg-gray-100 text-gray-400 rounded-full text-[10px] font-bold uppercase">Chưa trúng</span>}</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4 font-serif font-bold">{r.rank}</td><td className="px-3 md:px-6 py-3 md:py-4 font-medium text-sm">{r.name}</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-right font-bold text-green-700">{r.votes}</td><td className="px-3 md:px-6 py-3 md:py-4 text-right text-red-400">{r.crossed}</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-right text-sm">{r.percent}%</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-center">{r.elected ? <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-[9px] md:text-[10px] font-bold">✔ Trúng</span> : <span className="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-full text-[9px] md:text-[10px] font-bold">✖</span>}</td>
                 </tr>
               ))}
             </tbody>
@@ -428,11 +428,11 @@ function ResultsView({ election }: { election: Election }) {
         </div>
       </>}
 
-      {activeTab === 'votecount' && <div className="bg-white rounded-[28px] shadow-sm border border-black/5 overflow-hidden">
-        <div className="p-6 border-b border-black/5"><h3 className="text-lg font-serif font-bold">Phân loại theo số người được bầu</h3><p className="text-sm text-gray-500 mt-1">Bầu {election.soUngVien} lấy {election.soNguoiDuocBau} — hợp lệ: bầu {election.soNguoiDuocBau}→{election.soUngVien > 1 ? election.soUngVien - 1 + ' → ' : ''}gạch {election.soUngVien - election.soNguoiDuocBau}→{election.soUngVien - 1} người</p></div>
-        <table className="w-full text-left">
-          <thead className="bg-[#fcfcf9] text-[#5A5A40] text-xs uppercase tracking-widest font-bold">
-            <tr><th className="px-6 py-3">Loại phiếu</th><th className="px-6 py-3 text-right">Hợp lệ</th><th className="px-6 py-3 text-right">Không hợp lệ</th><th className="px-6 py-3 text-right">Tổng</th></tr>
+      {activeTab === 'votecount' && <div className="bg-white rounded-xl md:rounded-[28px] shadow-sm border border-black/5 overflow-x-auto">
+        <div className="p-4 md:p-6 border-b border-black/5"><h3 className="text-base md:text-lg font-serif font-bold">Phân loại theo số người bầu</h3></div>
+        <table className="w-full text-left min-w-[400px]">
+          <thead className="bg-[#fcfcf9] text-[#5A5A40] text-[10px] md:text-xs uppercase tracking-wider md:tracking-widest font-bold">
+            <tr><th className="px-3 md:px-6 py-2 md:py-3">Loại</th><th className="px-3 md:px-6 py-2 md:py-3 text-right">HL</th><th className="px-3 md:px-6 py-2 md:py-3 text-right">KHL</th><th className="px-3 md:px-6 py-2 md:py-3 text-right">Tổng</th></tr>
           </thead>
           <tbody className="divide-y divide-black/5">
             {Array.from({ length: election.soUngVien + 1 }, (_, i) => {
@@ -442,10 +442,10 @@ function ResultsView({ election }: { election: Election }) {
               const isValid = i >= 1 && i <= election.soNguoiDuocBau;
               return (
                 <tr key={i} className={cn("hover:bg-[#fcfcf9]", isValid && "bg-green-50/50")}>
-                  <td className="px-6 py-4 font-medium">{i === 0 ? 'Phiếu trắng (bầu 0)' : `Bầu ${i} người (gạch ${election.soUngVien - i})`}</td>
-                  <td className="px-6 py-4 text-right font-bold text-green-600">{hl || '-'}</td>
-                  <td className="px-6 py-4 text-right font-bold text-red-500">{khl || '-'}</td>
-                  <td className="px-6 py-4 text-right font-bold">{hl + khl}</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4 font-medium text-sm">{i === 0 ? 'Trắng' : `Bầu ${i} (gạch ${election.soUngVien - i})`}</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-right font-bold text-green-600">{hl || '-'}</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-right font-bold text-red-500">{khl || '-'}</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-right font-bold">{hl + khl}</td>
                 </tr>
               );
             })}
@@ -453,19 +453,19 @@ function ResultsView({ election }: { election: Election }) {
         </table>
       </div>}
 
-      {activeTab === 'types' && <div className="bg-white rounded-[28px] shadow-sm border border-black/5 overflow-hidden">
-          <div className="p-6 border-b border-black/5"><h3 className="text-lg font-serif font-bold">Phân loại phiếu theo mẫu gạch</h3></div>
-          <table className="w-full text-left">
-            <thead className="bg-[#fcfcf9] text-[#5A5A40] text-xs uppercase tracking-widest font-bold">
-              <tr><th className="px-6 py-3">Mẫu gạch</th><th className="px-6 py-3 text-right">Số lượng</th><th className="px-6 py-3">Trạng thái</th><th className="px-6 py-3">Ghi chú</th></tr>
+      {activeTab === 'types' && <div className="bg-white rounded-xl md:rounded-[28px] shadow-sm border border-black/5 overflow-x-auto">
+          <div className="p-4 md:p-6 border-b border-black/5"><h3 className="text-base md:text-lg font-serif font-bold">Loại phiếu theo mẫu gạch</h3></div>
+          <table className="w-full text-left min-w-[400px]">
+            <thead className="bg-[#fcfcf9] text-[#5A5A40] text-[10px] md:text-xs uppercase tracking-wider md:tracking-widest font-bold">
+              <tr><th className="px-3 md:px-6 py-2 md:py-3">Mẫu</th><th className="px-3 md:px-6 py-2 md:py-3 text-right">SL</th><th className="px-3 md:px-6 py-2 md:py-3">✔/✖</th><th className="px-3 md:px-6 py-2 md:py-3">Ghi chú</th></tr>
             </thead>
             <tbody className="divide-y divide-black/5">
               {ballotTypes.map((bt, i) => (
                 <tr key={i} className="hover:bg-[#fcfcf9]">
-                  <td className="px-6 py-4 font-serif font-bold text-xl tracking-widest">{bt.pattern === '0' ? '(trắng)' : bt.pattern}</td>
-                  <td className="px-6 py-4 text-right font-bold text-lg">{bt.count}</td>
-                  <td className="px-6 py-4">{bt.valid ? <CheckCircle2 size={18} className="text-green-500" /> : <XCircle size={18} className="text-red-500" />}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{bt.note}</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4 font-serif font-bold text-lg md:text-xl tracking-widest">{bt.pattern === '0' ? '(trắng)' : bt.pattern}</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-right font-bold">{bt.count}</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4">{bt.valid ? <CheckCircle2 size={16} className="text-green-500" /> : <XCircle size={16} className="text-red-500" />}</td>
+                  <td className="px-3 md:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-500">{bt.note}</td>
                 </tr>
               ))}
             </tbody>
