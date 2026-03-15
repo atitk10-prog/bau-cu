@@ -28,6 +28,7 @@ function doGet(e) {
     case 'getBallots': result = getBallots(payload.electionId); break;
     case 'addBallot': result = addBallot(payload.electionId, payload.ballot, payload.user); break;
     case 'addBulkBallot': result = addBulkBallot(payload.electionId, payload.pattern, payload.count, payload.user); break;
+    case 'addBulkBallots': result = addBulkBallots(payload.electionId, payload.ballots, payload.user); break;
     case 'deleteBallot': result = deleteBallot(payload.electionId, payload.id); break;
     case 'getResults': result = getResults(payload.electionId); break;
     case 'getReport': result = getReport(); break;
@@ -352,6 +353,33 @@ function addBulkBallot(electionId, pattern, count, user) {
   };
 }
 
+// Cách 3: Nhập nhanh hàng loạt — nhận mảng patterns, ghi batch 1 lần
+function addBulkBallots(electionId, ballots, user) {
+  if (!ballots || !ballots.length) return { success: false, error: 'Không có phiếu nào' };
+  var sheet = getSheet('B_' + electionId);
+  var startId = sheet.getLastRow();
+  var time = new Date().toLocaleString('vi-VN');
+  var results = [];
+  var rows = [];
+
+  for (var i = 0; i < ballots.length; i++) {
+    var pattern = String(ballots[i]).trim();
+    if (pattern === '') continue; // skip empty cells
+    var v = validateBallot(pattern, electionId);
+    var id = startId + rows.length;
+    rows.push([id, pattern, 1, v.valid, v.note, time, user || '', 'manual']);
+    results.push({ id: id, pattern: pattern, count: 1, valid: v.valid, note: v.note, time: time, user: user || '', type: 'manual' });
+  }
+
+  if (rows.length === 0) return { success: false, error: 'Không có phiếu hợp lệ nào' };
+
+  // Batch write all rows at once for speed
+  var startRow = sheet.getLastRow() + 1;
+  sheet.getRange(startRow, 1, rows.length, 8).setValues(rows);
+
+  return { success: true, ballots: results, count: rows.length };
+}
+
 function deleteBallot(electionId, id) {
   var sheet = getSheet('B_' + electionId);
   var data = sheet.getDataRange().getValues();
@@ -534,3 +562,4 @@ function setupSheets() {
   }
   SpreadsheetApp.getUi().alert('Đã tạo cấu trúc sheets thành công!');
 }
+  

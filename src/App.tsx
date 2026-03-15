@@ -176,7 +176,7 @@ function ElectionsView({ onSelect, activeId, user, onRefresh }: { onSelect: (e: 
 
 // ==================== BALLOT ENTRY ====================
 function BallotEntryView({ election, user }: { election: Election; user: string }) {
-  const [tab, setTab] = useState<'manual' | 'bulk'>('manual');
+  const [tab, setTab] = useState<'manual' | 'bulk' | 'quick'>('quick');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [recentBallots, setRecentBallots] = useState<Ballot[]>([]);
   const [ballot, setBallot] = useState('');
@@ -186,13 +186,20 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
   const [note, setNote] = useState(''); const [submitting, setSubmitting] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
 
+  // Quick entry state
+  const [quickCount, setQuickCount] = useState('');
+  const [quickCells, setQuickCells] = useState<string[]>([]);
+  const [quickGenerated, setQuickGenerated] = useState(false);
+  const [quickSaving, setQuickSaving] = useState(false);
+  const [quickSaved, setQuickSaved] = useState(false);
+  const quickRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+
   useEffect(() => {
     Promise.all([api.getCandidates(election.id), api.getBallots(election.id)]).then(([c, b]) => {
       if (c.success) setCandidates(c.candidates);
       if (b.success) {
         setRecentBallots(b.ballots.slice(-15).reverse());
         const total = b.ballots.reduce((sum: number, bl: Ballot) => sum + (Number(bl.count) || 1), 0);
-        console.log('Ballots loaded:', b.ballots.length, 'entries, totalCount:', total, 'sample:', b.ballots[0]);
         setTotalCount(total);
       }
     });
@@ -211,6 +218,20 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
     if (chars.length > maxGach) { setStatus('invalid'); setNote('Gạch quá nhiều'); return; }
     const voted = election.soUngVien - chars.length;
     setStatus('valid'); setNote(`✓ Gạch ${chars.length}, bầu ${voted} người`);
+  }, [candidates, election, minGach, maxGach]);
+
+  // Client-side validate for quick cells
+  const validateCell = useCallback((val: string): { valid: boolean; note: string; isBlank?: boolean; votedNames?: string[] } => {
+    if (!val || val === '0') return { valid: false, note: 'Phiếu trắng', isBlank: true };
+    const chars = val.split(''); const validIds = candidates.map(c => c.id);
+    for (const ch of chars) { if (!validIds.includes(ch)) return { valid: false, note: `UV ${ch} không tồn tại` }; }
+    if (new Set(chars).size !== chars.length) return { valid: false, note: 'Trùng số' };
+    if (chars.length < minGach) return { valid: false, note: `Gạch ${chars.length} (cần ≥${minGach})` };
+    if (chars.length >= election.soUngVien) return { valid: false, note: 'Gạch hết — trắng', isBlank: true };
+    if (chars.length > maxGach) return { valid: false, note: 'Gạch quá nhiều' };
+    const voted = election.soUngVien - chars.length;
+    const votedNames = candidates.filter(c => !chars.includes(c.id)).map(c => c.name);
+    return { valid: true, note: `✓ Bầu ${voted}: ${votedNames.join(', ')}`, votedNames };
   }, [candidates, election, minGach, maxGach]);
 
   useEffect(() => { if (ballot) validate(ballot); else { setStatus('idle'); setNote(''); } }, [ballot, validate]);
@@ -236,6 +257,67 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
 
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleManualSubmit(); };
 
+  // Quick entry handlers
+  const generateGrid = () => {
+    const n = parseInt(quickCount);
+    if (!n || n <= 0 || n > 500) return;
+    setQuickCells(new Array(n).fill(''));
+    setQuickGenerated(true);
+    setQuickSaved(false);
+    quickRefs.current = new Array(n).fill(null);
+    setTimeout(() => quickRefs.current[0]?.focus(), 100);
+  };
+
+  const handleQuickCellChange = (idx: number, val: string) => {
+    const cleaned = val.replace(/[^0-9]/g, '');
+    setQuickCells(prev => { const next = [...prev]; next[idx] = cleaned; return next; });
+  };
+
+  const handleQuickCellKeyDown = (e: React.KeyboardEvent, idx: number) => {
+    if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+      e.preventDefault();
+      // Move to next cell
+      if (idx < quickCells.length - 1) {
+        quickRefs.current[idx + 1]?.focus();
+      }
+    }
+    if (e.key === 'Tab' && e.shiftKey) {
+      e.preventDefault();
+      if (idx > 0) quickRefs.current[idx - 1]?.focus();
+    }
+  };
+
+  const handleQuickSave = async () => {
+    const filled = quickCells.filter(c => c.trim() !== '');
+    if (filled.length === 0) return;
+    setQuickSaving(true);
+    try {
+      const res = await api.addBulkBallots(election.id, filled, user);
+      if (res.success) {
+        setTotalCount(s => s + res.count);
+        setRecentBallots(prev => [...(res.ballots || []).reverse(), ...prev].slice(0, 15));
+        setQuickSaved(true);
+      } else {
+        alert(res.error || 'Lỗi khi lưu');
+      }
+    } catch (e) { console.error(e); alert('Lỗi kết nối'); }
+    setQuickSaving(false);
+  };
+
+  // Quick entry stats
+  const quickStats = React.useMemo(() => {
+    const filled = quickCells.filter(c => c.trim() !== '');
+    let valid = 0, invalid = 0, blank = 0;
+    filled.forEach(c => {
+      const v = validateCell(c);
+      if (v.isBlank) blank++;
+      else if (v.valid) valid++;
+      else invalid++;
+    });
+    const remaining = election.phieuThuVe > 0 ? election.phieuThuVe - totalCount - filled.length : -1;
+    return { filled: filled.length, total: quickCells.length, valid, invalid, blank, remaining };
+  }, [quickCells, validateCell, election.phieuThuVe, totalCount]);
+
   return (
     <div className="space-y-6">
       <header>
@@ -244,14 +326,124 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
       </header>
 
       {/* Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
+        <button onClick={() => setTab('quick')} className={cn("px-3 md:px-5 py-2 md:py-2.5 rounded-full font-medium text-xs md:text-sm transition-all", tab === 'quick' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>⚡ Nhập nhanh</button>
         <button onClick={() => setTab('manual')} className={cn("px-3 md:px-5 py-2 md:py-2.5 rounded-full font-medium text-xs md:text-sm transition-all", tab === 'manual' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>✏️ Thủ công</button>
         <button onClick={() => setTab('bulk')} className={cn("px-3 md:px-5 py-2 md:py-2.5 rounded-full font-medium text-xs md:text-sm transition-all", tab === 'bulk' ? "bg-[#5A5A40] text-white" : "bg-white text-[#5A5A40] border border-black/10")}>📦 Loại phiếu</button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-8">
         <div className="xl:col-span-2 space-y-6">
-          {tab === 'manual' ? (
+          {tab === 'quick' ? (
+            <div className="space-y-4">
+              {/* Step 1: Input count */}
+              <div className="bg-white p-5 md:p-8 rounded-2xl md:rounded-[32px] shadow-sm border border-black/5">
+                <h3 className="text-lg md:text-xl font-serif font-bold mb-2">⚡ Nhập nhanh hàng loạt</h3>
+                <p className="text-xs md:text-sm text-gray-500 mb-4">Nhập số phiếu cần nhập → tạo lưới ô → nhập liên tục → Lưu tất cả 1 lần</p>
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold uppercase tracking-widest text-[#5A5A40] mb-2">Số phiếu muốn nhập</label>
+                    <input type="number" min="1" max="500" value={quickCount} onChange={e => setQuickCount(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') generateGrid(); }}
+                      className="inp text-center text-2xl font-bold" placeholder="VD: 100" />
+                  </div>
+                  <button onClick={generateGrid} className="px-6 py-3 bg-[#5A5A40] text-white rounded-full font-bold shadow-lg hover:bg-[#4a4a35] whitespace-nowrap">
+                    Tạo lưới
+                  </button>
+                </div>
+                {election.phieuThuVe > 0 && <p className="text-xs text-gray-400 mt-2">
+                  Đã nhập: <b className="text-[#5A5A40]">{totalCount}</b> / {election.phieuThuVe} phiếu thu về
+                  {election.phieuThuVe - totalCount > 0 && <> — Còn lại: <b className="text-orange-500">{election.phieuThuVe - totalCount}</b></>}
+                </p>}
+              </div>
+
+              {/* Step 2: Grid */}
+              {quickGenerated && (
+                <>
+                  {/* Realtime stats bar */}
+                  <div className="bg-white p-4 rounded-2xl shadow-sm border border-black/5">
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <span>📝 Đã nhập: <b className="text-[#5A5A40]">{quickStats.filled}</b>/{quickStats.total}</span>
+                      <span>✅ Hợp lệ: <b className="text-green-600">{quickStats.valid}</b></span>
+                      <span>❌ KHL: <b className="text-red-500">{quickStats.invalid}</b></span>
+                      <span>⬜ Trắng: <b className="text-gray-400">{quickStats.blank}</b></span>
+                      {quickStats.remaining >= 0 && <span className={cn("font-medium", quickStats.remaining < 0 ? "text-red-600" : "text-orange-500")}>
+                        🗳️ Phiếu còn lại: <b>{quickStats.remaining}</b>
+                      </span>}
+                    </div>
+                    {quickStats.filled > 0 && <div className="w-full h-2 bg-gray-100 rounded-full mt-3 overflow-hidden">
+                      <div className="h-full bg-[#5A5A40] rounded-full transition-all" style={{ width: `${(quickStats.filled / quickStats.total) * 100}%` }} />
+                    </div>}
+                  </div>
+
+                  {/* Candidate reference inline */}
+                  <div className="bg-[#5A5A40]/5 p-3 rounded-xl">
+                    <div className="flex flex-wrap gap-2 items-center text-sm">
+                      <span className="text-[#5A5A40] font-bold text-xs uppercase tracking-wider mr-2">Ứng viên:</span>
+                      {candidates.map(c => <span key={c.id} className="px-2 py-0.5 bg-white rounded-lg text-xs border border-black/10"><b>{c.id}.</b> {c.name}</span>)}
+                    </div>
+                  </div>
+
+                  {/* Grid of cells */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+                    {quickCells.map((cell, idx) => {
+                      const v = cell ? validateCell(cell) : null;
+                      const isValid = v?.valid;
+                      const isInvalid = v && !v.valid;
+                      return (
+                        <div key={idx} className={cn(
+                          "bg-white rounded-xl border-2 p-2 transition-all",
+                          isValid ? "border-green-300 bg-green-50/30" :
+                          isInvalid ? "border-red-300 bg-red-50/30" :
+                          "border-gray-100"
+                        )}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-[10px] font-bold text-gray-300">#{totalCount + idx + 1}</span>
+                            {isValid && <CheckCircle2 size={12} className="text-green-500" />}
+                            {isInvalid && <XCircle size={12} className="text-red-500" />}
+                          </div>
+                          <input
+                            ref={el => { quickRefs.current[idx] = el; }}
+                            type="text"
+                            value={cell}
+                            onChange={e => handleQuickCellChange(idx, e.target.value)}
+                            onKeyDown={e => handleQuickCellKeyDown(e, idx)}
+                            className={cn(
+                              "w-full text-center text-lg font-serif font-bold py-1.5 rounded-lg border outline-none transition-all tracking-[0.2em]",
+                              isValid ? "border-green-200 text-green-700" :
+                              isInvalid ? "border-red-200 text-red-700" :
+                              "border-gray-100 focus:border-[#5A5A40]"
+                            )}
+                            placeholder="..."
+                          />
+                          {v && <p className={cn("text-[9px] mt-1 leading-tight truncate", isValid ? "text-green-600" : "text-red-500")} title={v.note}>{v.note}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Save all button */}
+                  <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-black/5 sticky bottom-16 lg:bottom-4 z-10">
+                    <div className="text-sm text-gray-500">
+                      {quickSaved ? <span className="text-green-600 font-bold">✓ Đã lưu {quickStats.filled} phiếu thành công!</span>
+                        : <>{quickStats.filled} phiếu đã nhập ({quickStats.valid} hợp lệ, {quickStats.invalid} KHL)</>
+                      }
+                    </div>
+                    <div className="flex gap-2">
+                      {quickSaved && <button onClick={() => { setQuickCells([]); setQuickGenerated(false); setQuickSaved(false); setQuickCount(''); }}
+                        className="px-5 py-2.5 bg-gray-100 text-[#5A5A40] rounded-full font-medium hover:bg-gray-200">
+                        Nhập đợt mới
+                      </button>}
+                      {!quickSaved && <button onClick={handleQuickSave} disabled={quickSaving || quickStats.filled === 0}
+                        className="px-6 py-2.5 bg-[#5A5A40] text-white rounded-full font-bold shadow-lg hover:bg-[#4a4a35] disabled:opacity-50">
+                        {quickSaving ? '⏳ Đang lưu...' : `💾 Lưu tất cả (${quickStats.filled} phiếu)`}
+                      </button>}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : tab === 'manual' ? (
             <div className={cn("bg-white p-5 md:p-10 rounded-2xl md:rounded-[32px] shadow-sm border-2 transition-all", status === 'valid' ? "border-green-300" : status === 'invalid' ? "border-red-300" : status === 'success' ? "border-blue-300" : "border-black/5")}>
               <div className={cn("h-1.5 rounded-full mb-4 md:mb-8 transition-colors", status === 'valid' ? "bg-green-500" : status === 'invalid' ? "bg-red-500" : status === 'success' ? "bg-blue-500" : "bg-[#5A5A40]")} />
               <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-6 flex-wrap">
@@ -291,12 +483,12 @@ function BallotEntryView({ election, user }: { election: Election; user: string 
             </div>
           )}
           {/* Candidate reference */}
-          <div className="bg-white p-3 md:p-5 rounded-xl md:rounded-[20px] shadow-sm border border-black/5">
+          {tab !== 'quick' && <div className="bg-white p-3 md:p-5 rounded-xl md:rounded-[20px] shadow-sm border border-black/5">
             <h4 className="text-xs font-bold uppercase tracking-widest text-[#5A5A40] mb-3">Danh sách ứng viên</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {candidates.map(c => <div key={c.id} className={cn("px-3 py-2 rounded-lg text-sm border", ballot.includes(c.id) || bulkPattern.includes(c.id) ? "bg-red-500 text-white border-red-500" : "bg-gray-50 border-gray-100")}><b>{c.id}.</b> {c.name}</div>)}
             </div>
-          </div>
+          </div>}
         </div>
 
         {/* Recent ballots */}

@@ -33,6 +33,7 @@ export const saveCandidates = (electionId: string, candidates: { id: string; nam
 export const getBallots = (electionId: string) => callApi('getBallots', { electionId });
 export const addBallot = (electionId: string, ballot: string, user: string) => callApi('addBallot', { electionId, ballot, user });
 export const addBulkBallot = (electionId: string, pattern: string, count: number, user: string) => callApi('addBulkBallot', { electionId, pattern, count, user });
+export const addBulkBallots = (electionId: string, ballots: string[], user: string) => callApi('addBulkBallots', { electionId, ballots, user });
 export const deleteBallot = (electionId: string, id: number) => callApi('deleteBallot', { electionId, id });
 
 // Results
